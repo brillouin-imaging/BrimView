@@ -27,6 +27,7 @@ class ActiveTabWatcher(param.Parameterized):
         **params
             Additional keyword arguments forwarded to `param.Parameterized`.
         """
+        super().__init__(**params)
         # define a parameter that will be True when the watched tab is active, False otherwise
         self.active = (tabs.active == index_of_tab_to_watch)
         # define a callback to update the parameter when the active tab changes
@@ -34,7 +35,6 @@ class ActiveTabWatcher(param.Parameterized):
             self.active = (active == index_of_tab_to_watch)
         # bind the callback to the Tabs active parameter
         param.bind(_update_tab_active_param, tabs.param.active, watch=True)
-        super().__init__(**params)
 
 def depends_when_active(*dependencies, watch: bool = False):
     """A custom version of `param.depends` that only triggers the decorated function when the "active" parameter is (or becomes) True.
