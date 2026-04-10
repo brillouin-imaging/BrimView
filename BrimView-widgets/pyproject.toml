@@ -29,7 +29,7 @@ classifiers = [
 license = "LGPL-3.0-or-later"
 license-files = ["LICEN[CS]E*"]
 
-# pin to minor versions to prevent unexpected breaking changes
+# pin to versions of dependencies that were tested with, but allow patch updates
 dependencies = [  
   "bokeh>=3.8,<3.10",
   "holoviews>=1.22,<1.23",
