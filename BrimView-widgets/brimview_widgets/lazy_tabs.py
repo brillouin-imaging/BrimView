@@ -1,6 +1,7 @@
 import param
 import panel as pn
 import functools
+import weakref
 
 class ActiveTabWatcher(param.Parameterized):
     """
@@ -45,26 +46,38 @@ def depends_when_active(*dependencies, watch: bool = False):
         @param.depends(*dependencies, "active", watch=watch)
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
+            # get the state dictionary of the current instance
+            curr_state = wrapper._state_dict.get(self, {})
+     
+            dependencies_value_attr = "dependencies_value"
+            dependencies_changed_attr = "dependencies_changed"
+            last_return_value_attr = "last_return_value"
+
             # Get the current values of the dependencies
             deps_vals = [getattr(self, dep) for dep in dependencies]
-            if not hasattr(wrapper, "dependencies_value"):
+            if not dependencies_value_attr in curr_state:
                 # First call, consider dependencies as changed
                 # N.B. This will also create the attribute "dependencies_changed" on the first call to the wrapper
-                wrapper.dependencies_changed = True                
+                curr_state[dependencies_changed_attr] = True
             else:
                 # Check if any of the dependencies have changed only if they haven't already been marked as changed
-                if not wrapper.dependencies_changed:
-                    wrapper.dependencies_changed = any(
-                        deps_vals[i] != wrapper.dependencies_value[i] for i in range(len(dependencies))
+                if not curr_state[dependencies_changed_attr]:
+                    curr_state[dependencies_changed_attr] = any(
+                        deps_vals[i] != curr_state[dependencies_value_attr][i] for i in range(len(dependencies))
                     )
             # Store current dependencies values for next comparison
-            wrapper.dependencies_value = deps_vals  
+            curr_state[dependencies_value_attr] = deps_vals
             # Only call the original function if the "active" parameter is True and dependencies have changed
-            if self.active and wrapper.dependencies_changed:
-                wrapper.dependencies_changed = False
-                # store the last computed value in the wrapper function itself so that it can be returned when the new value of the function is not computed
-                wrapper.last_return_value = func(self, *args, **kwargs)                
+            if self.active and curr_state[dependencies_changed_attr]:
+                curr_state[dependencies_changed_attr] = False
+                # store the last computed value so that it can be returned when the new value of the function is not computed
+                curr_state[last_return_value_attr] = func(self, *args, **kwargs)
+            # update the state dictionary of the current instance
+            wrapper._state_dict[self] = curr_state
             # Return the last computed value even if "active" is False or dependencies haven't changed
-            return getattr(wrapper, "last_return_value", None)
+            return curr_state.get(last_return_value_attr, None)
+        # create a state dictionary for the wrapper function to store the state of each instance of the class where the decorated method is defined 
+        if not hasattr(wrapper, "_state_dict"):
+            wrapper._state_dict = weakref.WeakKeyDictionary()
         return wrapper
     return decorator
