@@ -16,7 +16,7 @@ from brimfile.file_abstraction import sync
 
 import zarr
 
-
+from .lazy_tabs import depends_when_active
 from .utils import catch_and_notify
 from .logging import logger
 
@@ -32,6 +32,8 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         allow_refs=True,
         doc="The names of the features selected and their set values",
     )
+    # This parameter will be True when the containing tab is active, False otherwise
+    active = param.Boolean(default=False, allow_refs=True)  
 
     def __init__(self, **params):
         self.title = pn.pane.Markdown("## Zarr file information")
@@ -95,7 +97,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
             f"Clicked on node: _{node['text']}_."  # TODO: Display the absolute path
         )
 
-    @param.depends("value")
+    @depends_when_active("value")
     @catch_and_notify(prefix="<b>Zarr file size: </b>")
     def _size_widget(self):
         logger.info("Calculating Zarr file size")
@@ -109,7 +111,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         logger.debug(msg)
         return pn.pane.Markdown(msg)
 
-    @param.depends("value", watch=True)
+    @depends_when_active("value", watch=True)
     @catch_and_notify(prefix="<b>Zarr file info: </b>")
     def _info_widget(self):
         if self.value is None:
@@ -120,7 +122,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         # group info is a dataclass
         self.info_tabulator.value = dict_to_tabulator_df(asdict(group_info))
 
-    @param.depends("value", watch=True)
+    @depends_when_active("value", watch=True)
     @catch_and_notify(prefix="<b>Update Zarr tree: </b>")
     def _update_tree_widget(self):
         if self.value is None:
