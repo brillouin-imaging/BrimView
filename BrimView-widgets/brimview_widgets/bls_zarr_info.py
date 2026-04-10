@@ -16,7 +16,7 @@ from brimfile.file_abstraction import sync
 
 import zarr
 
-
+from .lazy_tabs import depends_when_active
 from .utils import catch_and_notify
 from .logging import logger
 
@@ -32,6 +32,8 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         allow_refs=True,
         doc="The names of the features selected and their set values",
     )
+    # This parameter will be True when the containing tab is active, False otherwise
+    active = param.Boolean(default=False, allow_refs=True)  
 
     def __init__(self, **params):
         self.title = pn.pane.Markdown("## Zarr file information")
@@ -95,7 +97,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
             f"Clicked on node: _{node['text']}_."  # TODO: Display the absolute path
         )
 
-    @param.depends("value")
+    @depends_when_active("value")
     @catch_and_notify(prefix="<b>Zarr file size: </b>")
     def _size_widget(self):
         logger.info("Calculating Zarr file size")
@@ -109,43 +111,55 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         logger.debug(msg)
         return pn.pane.Markdown(msg)
 
-    @param.depends("value", watch=True)
+    @depends_when_active("value", watch=True)
     @catch_and_notify(prefix="<b>Zarr file info: </b>")
     def _info_widget(self):
         if self.value is None:
             self.info_tabulator.value = None
             return
-        root: zarr.Group = self.value._file._root
-        group_info = sync(root.info_complete())
-        # group info is a dataclass
-        self.info_tabulator.value = dict_to_tabulator_df(asdict(group_info))
+        # Display the loading spinner 
+        self.info_tabulator.loading = True
+        try:
+            root: zarr.Group = self.value._file._root
+            group_info = sync(root.info_complete())
+            # group info is a dataclass
+            self.info_tabulator.value = dict_to_tabulator_df(asdict(group_info))
+        finally:
+            # Hide the loading spinner (always, even if an exception occurs)
+            self.info_tabulator.loading = False
 
-    @param.depends("value", watch=True)
+    @depends_when_active("value", watch=True)
     @catch_and_notify(prefix="<b>Update Zarr tree: </b>")
     def _update_tree_widget(self):
         if self.value is None:
             self.tree.data = []
             return
-        file = self.value._file
+        # Display the loading spinner 
+        self.tree.loading = True
+        try:
+            file = self.value._file
 
-        logger.debug("Retrieving json descriptor for the Zarr file")
-        json_tree = generate_json_descriptor(file)
-        logger.info("Converting json_descriptor to jstree format")
-        tree = json.loads(json_tree)
-        typed_tree = brimfilejson_to_jstree(tree)
-        for root_node in typed_tree:
-            root_node.state = NodeState(opened=True)
-        dict_tree = [asdict(node) for node in typed_tree]
+            logger.debug("Retrieving json descriptor for the Zarr file")
+            json_tree = generate_json_descriptor(file)
+            logger.info("Converting json_descriptor to jstree format")
+            tree = json.loads(json_tree)
+            typed_tree = brimfilejson_to_jstree(tree)
+            for root_node in typed_tree:
+                root_node.state = NodeState(opened=True)
+            dict_tree = [asdict(node) for node in typed_tree]
 
-        logger.debug("Updating tree widget with new data")
-        self.tree.data = dict_tree
+            logger.debug("Updating tree widget with new data")
+            self.tree.data = dict_tree
+        finally:
+            # Hide the loading spinner (always, even if an exception occurs)
+            self.tree.loading = False
 
     def __panel__(self):
         return pn.Column(
             self.title,
             pn.Row(
                 self.info_tabulator,
-                self._size_widget,
+                pn.param.ParamMethod(self._size_widget, loading_indicator=True),
             ),
             pn.layout.Divider(height=10, margin=10),
             pn.FlexBox(

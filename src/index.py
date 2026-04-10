@@ -6,6 +6,8 @@ from brimview_widgets.logging import logger
 from brimview_widgets.environment import running_from_pyodide
 import brimfile as bls  # Force import of brimfile
 
+from brimview_widgets.lazy_tabs import ActiveTabWatcher
+
 import panel as pn
 import holoviews as hv
 import xarray as xr  # Force import of xarray
@@ -19,15 +21,14 @@ __version__ = "0.3.0"
 
 hv.extension("bokeh")  # or 'plotly'/'matplotlib' depending on your use
 pn.extension("plotly", "filedropper", "jsoneditor", "tabulator", "modal", "tree", notifications=True)
-pn.extension(
-    raw_css=[
+pn.extension(raw_css=[
         """
 .bk-tabs .bk-tab-pane[hidden] {
     pointer-events: none !important;
 }
-"""
-    ]
-)
+"""])
+# set the default loading indicator 
+pn.config.loading_spinner = "arc"
 
 # --- Usefull debug prints ---
 logger.info("Starting Brimview...")
@@ -62,7 +63,8 @@ sidebar = pn.layout.FlexBox()
 main_tabs = pn.Tabs(
     sizing_mode="stretch_width",
 )
-
+# This is the index of the Zarr info tab, used for the ActiveTabWatcher. 
+ZARR_INFO_TAB_INDEX = 3  
 # Adding a github icon linking to the project in the header
 github_icon = pn.pane.HTML(
     '<a href="https://github.com/prevedel-lab/BrimView" target="_blank" style="text-decoration: none;">'
@@ -215,7 +217,8 @@ def build_ui():
             TreamentWidget = brimview_widgets.BlsDoTreatment(FileSelector)
 
         # Creating the zarr info widget
-        zarr_info_widget = brimview_widgets.BlsZarrInfo(value=FileSelector.param.data)
+        zarr_info_tab_active = ActiveTabWatcher(main_tabs, index_of_tab_to_watch=ZARR_INFO_TAB_INDEX)  
+        zarr_info_widget = brimview_widgets.BlsZarrInfo(value=FileSelector.param.data, active = zarr_info_tab_active.param.active)
     
     analyser_placeholder.append(TreamentWidget)
 
@@ -259,7 +262,10 @@ def build_ui():
 
     # "Treatement" tab
     main_tabs.append(("(Re-)analyze spectra", analyser_placeholder))
+
+    # "Zarr Info" tab
     main_tabs.append(("Advanced file information", zarr_info_widget))
+    assert len(main_tabs) - 1 == ZARR_INFO_TAB_INDEX, "The index of the Zarr info tab has changed, please update the constant ZARR_INFO_TAB_INDEX accordingly"
 
     # ======
     # Populate the sidebar
