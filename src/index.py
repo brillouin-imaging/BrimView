@@ -21,15 +21,14 @@ __version__ = "0.3.0"
 
 hv.extension("bokeh")  # or 'plotly'/'matplotlib' depending on your use
 pn.extension("plotly", "filedropper", "jsoneditor", "tabulator", "modal", "tree", notifications=True)
-pn.extension(
-    raw_css=[
+pn.extension(raw_css=[
         """
 .bk-tabs .bk-tab-pane[hidden] {
     pointer-events: none !important;
 }
-"""
-    ]
-)
+"""])
+# set the default loading indicator 
+pn.config.loading_spinner = "arc"
 
 # --- Usefull debug prints ---
 logger.info("Starting Brimview...")

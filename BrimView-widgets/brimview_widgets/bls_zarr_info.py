@@ -117,10 +117,14 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         if self.value is None:
             self.info_tabulator.value = None
             return
+        # Display the loading spinner 
+        self.info_tabulator.loading = True
         root: zarr.Group = self.value._file._root
         group_info = sync(root.info_complete())
         # group info is a dataclass
         self.info_tabulator.value = dict_to_tabulator_df(asdict(group_info))
+        # Hide the loading spinner
+        self.info_tabulator.loading = False
 
     @depends_when_active("value", watch=True)
     @catch_and_notify(prefix="<b>Update Zarr tree: </b>")
@@ -128,6 +132,9 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         if self.value is None:
             self.tree.data = []
             return
+        # Display the loading spinner 
+        self.tree.loading = True
+
         file = self.value._file
 
         logger.debug("Retrieving json descriptor for the Zarr file")
@@ -141,13 +148,15 @@ class BlsZarrInfo(WidgetBase, PyComponent):
 
         logger.debug("Updating tree widget with new data")
         self.tree.data = dict_tree
+        # Hide the loading spinner
+        self.tree.loading = False
 
     def __panel__(self):
         return pn.Column(
             self.title,
             pn.Row(
                 self.info_tabulator,
-                self._size_widget,
+                pn.param.ParamMethod(self._size_widget, loading_indicator=True),
             ),
             pn.layout.Divider(height=10, margin=10),
             pn.FlexBox(
