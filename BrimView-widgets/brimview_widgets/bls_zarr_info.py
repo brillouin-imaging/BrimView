@@ -119,12 +119,14 @@ class BlsZarrInfo(WidgetBase, PyComponent):
             return
         # Display the loading spinner 
         self.info_tabulator.loading = True
-        root: zarr.Group = self.value._file._root
-        group_info = sync(root.info_complete())
-        # group info is a dataclass
-        self.info_tabulator.value = dict_to_tabulator_df(asdict(group_info))
-        # Hide the loading spinner
-        self.info_tabulator.loading = False
+        try:
+            root: zarr.Group = self.value._file._root
+            group_info = sync(root.info_complete())
+            # group info is a dataclass
+            self.info_tabulator.value = dict_to_tabulator_df(asdict(group_info))
+        finally:
+            # Hide the loading spinner (always, even if an exception occurs)
+            self.info_tabulator.loading = False
 
     @depends_when_active("value", watch=True)
     @catch_and_notify(prefix="<b>Update Zarr tree: </b>")
@@ -134,22 +136,23 @@ class BlsZarrInfo(WidgetBase, PyComponent):
             return
         # Display the loading spinner 
         self.tree.loading = True
+        try:
+            file = self.value._file
 
-        file = self.value._file
+            logger.debug("Retrieving json descriptor for the Zarr file")
+            json_tree = generate_json_descriptor(file)
+            logger.info("Converting json_descriptor to jstree format")
+            tree = json.loads(json_tree)
+            typed_tree = brimfilejson_to_jstree(tree)
+            for root_node in typed_tree:
+                root_node.state = NodeState(opened=True)
+            dict_tree = [asdict(node) for node in typed_tree]
 
-        logger.debug("Retrieving json descriptor for the Zarr file")
-        json_tree = generate_json_descriptor(file)
-        logger.info("Converting json_descriptor to jstree format")
-        tree = json.loads(json_tree)
-        typed_tree = brimfilejson_to_jstree(tree)
-        for root_node in typed_tree:
-            root_node.state = NodeState(opened=True)
-        dict_tree = [asdict(node) for node in typed_tree]
-
-        logger.debug("Updating tree widget with new data")
-        self.tree.data = dict_tree
-        # Hide the loading spinner
-        self.tree.loading = False
+            logger.debug("Updating tree widget with new data")
+            self.tree.data = dict_tree
+        finally:
+            # Hide the loading spinner (always, even if an exception occurs)
+            self.tree.loading = False
 
     def __panel__(self):
         return pn.Column(
