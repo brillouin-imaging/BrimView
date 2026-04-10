@@ -31,9 +31,9 @@ license-files = ["LICEN[CS]E*"]
 
 # pin to minor versions to prevent unexpected breaking changes
 dependencies = [  
-  "bokeh~=3.8",
-  "holoviews~=1.22",
-  "panel~=1.8",
+  "bokeh>=3.8,<3.10",
+  "holoviews>=1.22,<1.23",
+  "panel>=1.8,<1.9",
   "panel-jstree~=0.3",
   "xarray",
   "brimfile[export-tiff]"
