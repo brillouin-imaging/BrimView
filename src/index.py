@@ -67,7 +67,7 @@ main_tabs = pn.Tabs(
 ZARR_INFO_TAB_INDEX = 3  
 # Adding a github icon linking to the project in the header
 github_icon = pn.pane.HTML(
-    '<a href="https://github.com/prevedel-lab/BrimView" target="_blank" style="text-decoration: none;">'
+    '<a href="https://github.com/brillouin-imaging/BrimView" target="_blank" style="text-decoration: none;">'
     '<img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="24" height="24" style="vertical-align: middle;">'
     "</a>",
 )
@@ -92,7 +92,7 @@ if _running_from_docker:
 credits = pn.Row(
     pn.Card(
         pn.pane.HTML(
-            "If you encounter any issue, please open a <a href='https://github.com/prevedel-lab/BrimView/issues'>GitHub issue</a>."
+            "If you encounter any issue, please open a <a href='https://github.com/brillouin-imaging/BrimView/issues'>GitHub issue</a>."
         ),
         pn.pane.HTML(
             f"<p><small>Developed with <a href='https://panel.holoviz.org/'>Panel</a> by Sebastian Hambura and Carlo Bevilacqua at <a href='https://www.prevedel.embl.de/'>Prevedel lab</a>.</small></p><p><small>BrimView {__version__}, brimfile {bls.__version__}, brimview-widgets {brimview_widgets.__version__} </small></p>",
@@ -137,7 +137,7 @@ def build_ui():
     analyser_placeholder = pn.layout.FlexBox()
     TreamentWidget_webapp = pn.pane.Markdown(
             # TODO: add link to download page
-            "This widget is not available in the Webapp.\nPlease download the desktop version of BrimView from [here](https://github.com/prevedel-lab/BrimView/releases/latest)"
+            "This widget is not available in the Webapp.\nPlease download the desktop version of BrimView from [here](https://github.com/brillouin-imaging/BrimView/releases/latest)"
         )
 
     logger.info("Building UI")

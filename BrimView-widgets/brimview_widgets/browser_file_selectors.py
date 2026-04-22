@@ -208,7 +208,7 @@ class CustomJSFileInput(WidgetBase):
 
     def __panel__(self):
         return pn.Card(
-            pn.pane.HTML('See <a href="https://prevedel-lab.github.io/brimfile/brimfile.html#store-types" target="_blank" rel="noopener noreferrer">documentation</a> for supported formats.'), 
+            pn.pane.HTML('See <a href="https://brillouin-imaging.github.io/brimfile/brimfile.html#store-types" target="_blank" rel="noopener noreferrer">documentation</a> for supported formats.'), 
             pn.FlexBox(self._html_button, self._panel_button_zip, self._panel_button_zarr),
             title="Local data",
             margin=5,

@@ -8,7 +8,7 @@ There are 4 main sub-projects to BrimView:
 
 - [BrimView](./src/): This is the "panel glue code" that mixes all the different widget together in a meaningfull way. It also contains some version-specific code, ie some .js to open zarr files in the WASM-version. You'll also find the version-specific build script. **If you want to change which widgets are displayed, start here**.
 
-- [brimfile](https://github.com/prevedel-lab/brimfile): This is the Python library that allows to read and write .brim files. **If you want to create a (BrimView independent) brim-file compatible software, go there.** 
+- [brimfile](https://github.com/brillouin-imaging/brimfile): This is the Python library that allows to read and write .brim files. **If you want to create a (BrimView independent) brim-file compatible software, go there.** 
 
 - [HDF5-BLS-treat](https://github.com/bio-brillouin/HDF5_BLS/tree/main/HDF5_BLS_treat): This is the Python library that allows to extract information from the recorded spectrum. **If you want to use the same processing algorithm as brim and brimX, go there** 
 

@@ -46,6 +46,6 @@ remote-store = [ "brimfile[remote-store]"]
 statistics = ["scipy"]
 
 [project.urls]
-Homepage = "https://github.com/prevedel-lab/BrimView"
-Repository = "https://github.com/prevedel-lab/BrimView/tree/main/BrimView-widgets"
-Issues = "https://github.com/prevedel-lab/BrimView/issues"
+Homepage = "https://github.com/brillouin-imaging/BrimView"
+Repository = "https://github.com/brillouin-imaging/BrimView/tree/main/BrimView-widgets"
+Issues = "https://github.com/brillouin-imaging/BrimView/issues"
