@@ -156,7 +156,8 @@ def build_ui():
             """
             from js import loadZarrFile
 
-            if not loadZarrFile(file_path):
+            # loadZarrFile requires a list as input, even for a single file, so we wrap the file_path in a list
+            if not loadZarrFile([file_path]):
                 raise ValueError(f"Failed to load file {file_path} from S3")
                         
             # loadZarrFile stores the bls_file in the global scope of the CustomJSFileInput module

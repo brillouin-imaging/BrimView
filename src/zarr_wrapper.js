@@ -12,6 +12,7 @@ import { ZarrFile, init_file } from "https://cdn.jsdelivr.net/gh/brillouin-imagi
  * a directory picker, where each file includes `webkitRelativePath` or `relativePath` so the
  * folder hierarchy can be reconstructed; the first path segment is used as the dataset name.
  * A single `.zip` file is also supported; in that case a list containing just that file should be passed.
+ * For a link to a S3 bucket, pass a list containing a single string with the URL.
  * @returns {boolean} Returns `true` after the Pyodide-side file object has been created.
  */
 function loadZarrFile(file_list) {
