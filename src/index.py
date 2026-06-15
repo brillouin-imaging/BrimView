@@ -17,7 +17,7 @@ import tifffile  # Force import of tifffile
 
 import HDF5_BLS_treat # Force import of HDF5_BLS_treat
 
-__version__ = "0.3.0"
+__version__ = brimview_widgets.__version__
 
 hv.extension("bokeh")  # or 'plotly'/'matplotlib' depending on your use
 pn.extension("plotly", "filedropper", "jsoneditor", "tabulator", "modal", "tree", notifications=True)
@@ -34,7 +34,6 @@ pn.config.loading_spinner = "arc"
 logger.info("Starting Brimview...")
 logger.info(f"BrimView {__version__}")
 logger.info(f"brimfile {bls.__version__}")
-logger.info(f"brimview-widgets {brimview_widgets.__version__}")
 
 
 def resource_path(relative_path):
@@ -95,7 +94,7 @@ credits = pn.Row(
             "If you encounter any issue, please open a <a href='https://github.com/brillouin-imaging/BrimView/issues'>GitHub issue</a>."
         ),
         pn.pane.HTML(
-            f"<p><small>Developed with <a href='https://panel.holoviz.org/'>Panel</a> by Sebastian Hambura and Carlo Bevilacqua at <a href='https://www.prevedel.embl.de/'>Prevedel lab</a>.</small></p><p><small>BrimView {__version__}, brimfile {bls.__version__}, brimview-widgets {brimview_widgets.__version__} </small></p>",
+            f"<p><small>Developed with <a href='https://panel.holoviz.org/'>Panel</a> by Sebastian Hambura and Carlo Bevilacqua at <a href='https://www.prevedel.embl.de/'>Prevedel lab</a>.</small></p><p><small>BrimView {__version__}, brimfile {bls.__version__}</small></p>",
         ),
         brimview_widgets.DebugReport(),
         hide_header=True,
