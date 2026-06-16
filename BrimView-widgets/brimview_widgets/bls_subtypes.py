@@ -5,6 +5,7 @@ from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
 import panel as pn
 import holoviews as hv
+import xarray as xr
 
 from .logging import logger
 from .utils import only_on_change, catch_and_notify
@@ -104,13 +105,19 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
 
         raw_spectrum, spectral_line, linewidth = raw_data
         height, width = raw_spectrum.shape
-        # Create image with pixel coordinates (0 to width, 0 to height)
-        img = hv.Image(raw_spectrum, bounds=(0, 0, width, height))
-        img = img.opts(cmap="gray")
+        raw_spectrum_da = xr.DataArray(
+            raw_spectrum,
+            dims=["y", "x"],
+            coords={
+                "x": np.arange(width),
+                "y": np.arange(height),
+            },
+            name="value",
+        )
 
-        # flip the line coordinates to match the convention in holoviews (origin at the bottom left corner)
-        def _flip_y(y: float) -> float:
-            return height - y
+        # Use explicit coordinates to match how image coordinates are handled elsewhere in the app.
+        img = hv.Image(raw_spectrum_da)
+        img = img.opts(cmap="gray")
 
         def _draw_line():
             y_start, x_start, y_end, x_end = spectral_line
@@ -124,10 +131,10 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
                 nx = -dy / length
                 ny = dx / length
                 line_polygon = [
-                    (x_start + nx * half_width, _flip_y(y_start + ny * half_width)),
-                    (x_end + nx * half_width, _flip_y(y_end + ny * half_width)),
-                    (x_end - nx * half_width, _flip_y(y_end - ny * half_width)),
-                    (x_start - nx * half_width, _flip_y(y_start - ny * half_width)),
+                    (x_start + nx * half_width, y_start + ny * half_width),
+                    (x_end + nx * half_width, y_end + ny * half_width),
+                    (x_end - nx * half_width, y_end - ny * half_width),
+                    (x_start - nx * half_width, y_start - ny * half_width),
                 ]
                 line_shape = hv.Polygons([line_polygon])
                 return line_shape.opts(color='red', alpha=0.2, line_alpha=0)
