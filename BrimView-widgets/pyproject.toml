@@ -36,7 +36,7 @@ dependencies = [
   "panel>=1.8,<1.9",
   "panel-jstree~=0.3",
   "xarray",
-  "brimfile[export-tiff]"
+  "brimfile[export-tiff]>=1.6"
 ]
 
 [project.optional-dependencies]
