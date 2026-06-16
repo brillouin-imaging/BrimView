@@ -227,7 +227,7 @@ def build_ui():
 
     # Brim Visualizer tab
     DataVisualizer = brimview_widgets.BlsDataVisualizer(FileSelector)
-    rawdata_visualizer = brimview_widgets.BlsRawDataVisualizer(FileSelector)
+    rawdata_visualizer = brimview_widgets.BlsRawDataVisualizer(DataVisualizer)
     spectrum_visualizer = brimview_widgets.BlsSpectrumVisualizer(DataVisualizer)
     statistics_widget = brimview_widgets.BlsStatistics(DataVisualizer)
     brim_visualizer = pn.layout.Row(

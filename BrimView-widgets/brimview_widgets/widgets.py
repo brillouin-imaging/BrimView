@@ -68,7 +68,7 @@ class SwitchWithLabels(pn.viewable.Viewer):
         self._label_true.object = self.label_true
 
     @pn.depends("label_false", watch=True)
-    def _update_label_true(self):
+    def _update_label_false(self):
         self._label_false.object = self.label_false
 
     def __panel__(self):
