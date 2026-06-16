@@ -79,12 +79,12 @@ class TinkerFileSelector(pn.viewable.Viewer):
 
         # Filedialog button
         self.filedialog_button = pn.widgets.Button(
-            name="Click me to select a file", button_type="primary", width=200
+            label="Click me to select a file", button_type="primary", width=200
         )
         self.filedialog_button.on_click(self._select_file_dialog)
 
         self.dragNdrop_button = pn.widgets.Button(
-            name="Click me to drag and drop a file", button_type="primary", width=200
+            label="Click me to drag and drop a file", button_type="primary", width=200
         )
         self.dragNdrop_button.on_click(self._drag_and_drop_dialog)
 

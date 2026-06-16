@@ -27,11 +27,11 @@ class SampledataLoader(pn.viewable.Viewer):
         
         # S3 link input
         self.sampledata_load_button = pn.widgets.Button(
-            name="Load sample", button_type="primary", width=200
+            label="Load sample", button_type="primary", width=200
         )
         self.sampledata_load_button.on_click(self._load_s3_file)
         self.s3_link = pn.widgets.Select(
-            name='Dataset', 
+            label='Dataset', 
             options=list(self._sampledata.keys()),
             width=300)
 

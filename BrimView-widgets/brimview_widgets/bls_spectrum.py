@@ -131,7 +131,7 @@ class FitParam(pn.viewable.Viewer):
         )
 
         self._reset_button = pn.widgets.Button(
-            name="Reset constraints", button_type="primary", visible=False
+            label="Reset constraints", button_type="primary", visible=False
         )
         self._reset_button.align = ("start", "end")
         self._reset_button.on_click(self._reset_fitted_parameters)
@@ -246,7 +246,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
 
     def __init__(self, result_plot: BlsDataVisualizer, **params):
         self.spinner = pn.indicators.LoadingSpinner(
-            value=False, size=20, name="Idle", visible=True
+            value=False, size=20, label="Idle", visible=True
         )
         self.bls_spectrum_in_image = None
         params["name"] = "Spectrum visualization"
@@ -387,11 +387,11 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         """
         if self.loading:
             self.spinner.value = True
-            self.spinner.name = "Loading..."
+            self.spinner.label = "Loading..."
             self.spinner.visible = True
         else:
             self.spinner.value = False
-            self.spinner.name = "Idle"
+            self.spinner.label = "Idle"
             self.spinner.visible = True
 
     def rewrite_card_header(self, card: pn.Card, tooltip: str = None):

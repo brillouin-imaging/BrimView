@@ -109,8 +109,8 @@ class CustomJSFileInput(WidgetBase):
 
         # Standard panel button
         # Clicking on it triggers file_input.click()
-        self._panel_button_zip = pn.widgets.Button(name="Load a .zip file", button_type="primary", width=200)
-        self._panel_button_zarr = pn.widgets.Button(name="Load a .zarr folder", button_type="primary", width=200)
+        self._panel_button_zip = pn.widgets.Button(label="Load a .zip file", button_type="primary", width=200)
+        self._panel_button_zarr = pn.widgets.Button(label="Load a .zarr folder", button_type="primary", width=200)
         self.apply_jscallback()
 
     def apply_jscallback(self):

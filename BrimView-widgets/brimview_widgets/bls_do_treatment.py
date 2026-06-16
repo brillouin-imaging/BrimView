@@ -105,11 +105,11 @@ class BrillouinPeaks(pn.viewable.Viewer):
         Create a Panel widget for the brillouin peak.
         """
         add_peak = pn.widgets.Button(
-            name="Add Brillouin Peak",
+            label="Add Brillouin Peak",
             on_click=self.add_peak,
         )
         remove_peak = pn.widgets.Button(
-            name="Remove Brillouin Peak",
+            label="Remove Brillouin Peak",
             on_click=self.remove_peak,
         )
         return pn.Card(
@@ -504,7 +504,7 @@ class BlsDoTreatment(pn.viewable.Viewer):
     def __panel__(self):
         """Use some fancier widget for some parameters"""
         self.btn_process_data = pn.widgets.Button(
-            name="Process Data",
+            label="Process Data",
             button_type="primary",
             width=200,
             sizing_mode="stretch_width",
@@ -513,10 +513,10 @@ class BlsDoTreatment(pn.viewable.Viewer):
         )
 
         self.mean_spectra_n_samples = pn.widgets.IntInput(
-            name="Number of spectra to use", value=50, start=1, end=1000, step=50
+            label="Number of spectra to use", value=50, start=1, end=1000, step=50
         )
         self.mean_spectra_button = pn.widgets.Button(
-            name="Compute mean spectra",
+            label="Compute mean spectra",
             button_type="primary",
             on_click=self.compute_mean_spectra,
             disabled=True,

@@ -10,11 +10,11 @@ class S3FileSelector(pn.viewable.Viewer):
         
         # S3 link input
         self.s3_load_button = pn.widgets.Button(
-            name="Load S3 file", button_type="primary", width=200
+            label="Load S3 file", button_type="primary", width=200
         )
         self.s3_load_button.on_click(self._load_s3_file)
         self.s3_link = pn.widgets.TextInput(
-            name="S3 Link",
+            label="S3 Link",
             placeholder="Enter S3 link to a file",
             width=300,
         )

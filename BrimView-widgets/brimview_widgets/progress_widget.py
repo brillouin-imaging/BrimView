@@ -9,7 +9,7 @@ class ProgressWidget(pn.Column):
         self.label = pn.pane.Markdown("### Ready")
 
         self.progress = pn.widgets.Progress(
-            value=0, max=100, width=400, name="Progress"
+            value=0, max=100, width=400, label="Progress"
         )
         self.status_text = pn.pane.Str("0 / 0")
         self.time_info = pn.pane.Str("Start: -- | Elapsed: -- | ETA: --")

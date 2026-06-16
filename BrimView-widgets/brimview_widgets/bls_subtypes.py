@@ -48,7 +48,7 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
 
         self.calibration_group = None
 
-        self._enable_switch = pn.widgets.Switch(name='Enabled', value=False)
+        self._enable_switch = pn.widgets.Switch(label='Enabled', value=False)
 
         # Because we're not a pn.Viewer anymore, by default we lost the "card" display
         # so despite us returning a card from __panel__, the shown card didn't match

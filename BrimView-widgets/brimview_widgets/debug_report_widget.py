@@ -58,7 +58,7 @@ class DebugReport(pn.viewable.Viewer):
         self._debug_markdown = pn.pane.Markdown()
         self._debug_report = pn.Modal(pn.Column(self._debug_markdown, scroll=True, height=400))
         self._debug_button = pn.widgets.Button(
-            name="Display debug report",
+            label="Display debug report",
             icon="bug",
             button_style="outline",
             icon_size="1.1em",

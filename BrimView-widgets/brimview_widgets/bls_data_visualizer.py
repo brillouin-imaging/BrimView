@@ -145,7 +145,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     def __init__(self, Bh5file: BlsFileInput, **params):
 
         self.spinner = pn.indicators.LoadingSpinner(
-            value=False, size=20, name="Idle", visible=True
+            value=False, size=20, label="Idle", visible=True
         )
 
         # Bh5file.param.watch(self._update_data, ["data"])
@@ -187,11 +187,11 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         with param.parameterized.batch_call_watchers(self.spinner):
             if self.loading:
                 self.spinner.value = True
-                self.spinner.name = "Loading..."
+                self.spinner.label = "Loading..."
                 self.spinner.visible = True
             else:
                 self.spinner.value = False
-                self.spinner.name = "Idle"
+                self.spinner.label = "Idle"
                 self.spinner.visible = True
 
     def rewrite_card_header(self, card: pn.Card):
@@ -820,7 +820,6 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         )
 
         self.result_download = pn.widgets.FileDownload(
-            name="Click to start download of data",
             filename="brimview_default.tiff",
             label="Export as OME-tiff",
             button_type="primary",
@@ -846,7 +845,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             self.param.colormap, options=get_linear_colormaps(), ncols=3
         )
         autoscale_checkbox = pn.widgets.Checkbox.from_param(
-            self.param.autoscale, name="Autoscale"
+            self.param.autoscale, label="Autoscale"
         )
         colorrange_picker = pn.widgets.RangeSlider.from_param(
             self.param.colorrange,
@@ -882,7 +881,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         self.img_axis_3_slice_widget = HorizontalEditableIntSlider.from_param(
             self.param.img_axis_3_slice,
             format="0",
-            name="3rd axis",
+            label="3rd axis",
             width=150,
             fixed_end=0,
             fixed_start=0,  # These will be updated in _update_axis_3

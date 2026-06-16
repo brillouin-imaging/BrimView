@@ -60,7 +60,7 @@ class BlsStatistics(WidgetBase, PyComponent):
 
     def __init__(self, result_plot: BlsDataVisualizer, **params):
         self.spinner = pn.indicators.LoadingSpinner(
-            value=False, size=20, name="Idle", visible=True
+            value=False, size=20, label="Idle", visible=True
         )
         params["name"] = "Group Statistics"
         self.tooltip = "Use the **Lasso Select** tool to select a region in the image. This widget will compute the average spectrum and other quantities for the selected region."
@@ -315,11 +315,11 @@ class BlsStatistics(WidgetBase, PyComponent):
         """
         if self.loading:
             self.spinner.value = True
-            self.spinner.name = "Loading..."
+            self.spinner.label = "Loading..."
             self.spinner.visible = True
         else:
             self.spinner.value = False
-            self.spinner.name = "Idle"
+            self.spinner.label = "Idle"
             self.spinner.visible = True
 
     def rewrite_card_header(self, card: pn.Card, tooltip: str = None):
