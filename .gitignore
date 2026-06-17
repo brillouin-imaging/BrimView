@@ -8,3 +8,4 @@ my_cache.sqlite
 .DS_store
 bls_examples/*
 src/pn_test.py
+.github/skills/*
