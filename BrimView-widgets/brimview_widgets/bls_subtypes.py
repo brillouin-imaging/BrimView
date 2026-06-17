@@ -161,6 +161,9 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         return img
     
     def __panel__(self):
+        # TODO: add tooltip to describe what the card is showing
+        #       displaying the colormap (and maybe allow to select it)
+        #       enabling the tool to hover above a pixel, and display the raw value
         return pn.Card(
             self._enable_switch,
             pn.pane.HoloViews(self._plot_data, sizing_mode="stretch_width"),
