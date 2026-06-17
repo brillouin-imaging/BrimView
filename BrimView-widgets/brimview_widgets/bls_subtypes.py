@@ -165,7 +165,6 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
             self._enable_switch,
             pn.pane.HoloViews(self._plot_data, sizing_mode="stretch_width"),
             title=self.name,
-            margin=5,
             sizing_mode="stretch_width",
             collapsed = True,
         )
