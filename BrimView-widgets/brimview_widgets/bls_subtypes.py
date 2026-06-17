@@ -18,8 +18,8 @@ from .bls_data_visualizer import BlsDataVisualizer
 class BlsRawDataVisualizer(WidgetBase, PyComponent):
 
     # === **Internal Param**
-    #   we need then to pass some signals, but we don't want them to
-    #   be diplayed on the UI. Puting precedence=-1 seems to do the trick
+    #   we need to pass some signals, but we don't want them to
+    #   be displayed on the UI. Putting precedence=-1 seems to do the trick
     # ===
     # This allows to have Param triggers, to automatically call the correct functions
     bls_data = param.ClassSelector(class_=bls.Data, default=None, allow_refs=True)
@@ -77,7 +77,7 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
                 return
         self.visible = False
     
-    def _get_raw_camera_image(self) -> hv.Dataset:
+    def _get_raw_camera_image(self) -> tuple[np.ndarray, tuple[float, float, float, float] | None, float] | None:
         if self.bls_data is None or self.dataset_zyx_coord is None:
             return None
         # TODO: implement the possibility of loading the spectral line from the analysis results group
