@@ -10,7 +10,6 @@ import xarray as xr
 from .logging import logger
 from .utils import only_on_change, catch_and_notify
 
-import brimfile as bls
 from brimfile.subtypes import single_point_VIPA
 from brimfile.subtypes import SubType
 from .bls_data_visualizer import BlsDataVisualizer
