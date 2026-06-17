@@ -30,6 +30,8 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         allow_refs=True,
     )
 
+    _enabled_param = param.Boolean(default=False, allow_refs=True, doc="Whether the raw data visualizer is enabled")
+
     # coordinates of the click on the Brillouin image, in the order (z,y,x)
     dataset_zyx_coord = param.NumericTuple(
         default=None, length=3, allow_refs=True, doc=""
@@ -53,6 +55,8 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         self.calibration_group = None
 
         self._enable_switch = pn.widgets.Switch(name='Enabled', value=False)
+
+        self._enabled_param = self._enable_switch.param.value
 
         # Because we're not a pn.Viewer anymore, by default we lost the "card" display
         # so despite us returning a card from __panel__, the shown card didn't match
@@ -79,9 +83,11 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
     
     @param.depends(
         "dataset_zyx_coord",
+        "_enabled_param"
     )
     @only_on_change(
-        "dataset_zyx_coord"
+        "dataset_zyx_coord",
+        "_enabled_param"
     )
     @catch_and_notify(prefix="<b>BlsRawDataVisualizer._plot_data: </b>")
     def _plot_data(self):
