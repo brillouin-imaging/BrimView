@@ -114,8 +114,9 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
             name="value",
         )
 
-        # Use explicit coordinates to match how image coordinates are handled elsewhere in the app.
-        img = hv.Image(raw_spectrum_da)
+        x_dim = hv.Dimension('x', unit='px')
+        y_dim = hv.Dimension('y', unit='px')
+        img = hv.Image(raw_spectrum_da, kdims=[x_dim, y_dim])
         img = img.opts(cmap="gray")
 
         def _draw_line():
