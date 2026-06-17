@@ -36,10 +36,6 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         default=None, length=3, allow_refs=True, doc=""
     )
 
-    # store the calibration group everytime the data group gets updated, 
-    # to avoid having to look for it every time we want to plot the data
-    calibration_group: bls.Calibration
-
     def __init__(self, result_plot: BlsDataVisualizer, **params):
 
         params["name"] = "Raw data"
@@ -66,17 +62,6 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
 
     def _enabled(self) -> bool:
         return self.visible and self._enable_switch.value
-
-    @param.depends("bls_data.data", watch=True)
-    def _update_calibration_group(self):
-        if not self._enabled():
-            return
-        if self.bls_data.data is not None:
-            try:
-                self.calibration_group = self.bls_data.data.get_calibration()
-            except Exception as e:
-                logger.warning(f"Could not find calibration group for the current data group: {e}")
-                self.calibration_group = None
     
     @param.depends("bls_data.file", watch=True)
     def _toggle_visibility(self):
