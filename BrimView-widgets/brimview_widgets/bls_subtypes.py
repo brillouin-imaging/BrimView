@@ -14,6 +14,7 @@ import brimfile as bls
 from brimfile.subtypes import single_point_VIPA
 from brimfile.subtypes import SubType
 from .bls_data_visualizer import BlsDataVisualizer
+from .bls_types import bls_param
 
 class BlsRawDataVisualizer(WidgetBase, PyComponent):
 
@@ -22,8 +23,13 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
     #   be displayed on the UI. Putting precedence=-1 seems to do the trick
     # ===
     # This allows to have Param triggers, to automatically call the correct functions
-    bls_data = param.ClassSelector(class_=bls.Data, default=None, allow_refs=True)
-    bls_file = param.ClassSelector(class_=bls.File, default=None, allow_refs=True)
+    bls_data = param.ClassSelector(
+        class_=bls_param,
+        default=None,
+        precedence=-1,
+        doc="The current selected BLS file/data",
+        allow_refs=True,
+    )
 
     # coordinates of the click on the Brillouin image, in the order (z,y,x)
     dataset_zyx_coord = param.NumericTuple(
@@ -42,8 +48,11 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         super().__init__(visible=False, **params)
 
         # Explicit annotation, because param and type hinting is not working properly
-        self.bls_file: bls.File = result_plot.param.bls_file
-        self.bls_data: bls.Data = result_plot.param.bls_data
+        self.bls_data: bls_param = bls_param(
+            file=result_plot.param.bls_file,
+            data=result_plot.param.bls_data,
+            analysis=result_plot.param.bls_analysis,
+        )
         self.dataset_zyx_coord: param.NumericTuple = result_plot.param.dataset_zyx_click
 
         self.calibration_group = None
@@ -58,30 +67,30 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
     def _enabled(self) -> bool:
         return self.visible and self._enable_switch.value
 
-    @param.depends("bls_data", watch=True)
+    @param.depends("bls_data.data", watch=True)
     def _update_calibration_group(self):
         if not self._enabled():
             return
-        if self.bls_data is not None:
+        if self.bls_data.data is not None:
             try:
-                self.calibration_group = self.bls_data.get_calibration()
+                self.calibration_group = self.bls_data.data.get_calibration()
             except Exception as e:
                 logger.warning(f"Could not find calibration group for the current data group: {e}")
                 self.calibration_group = None
     
-    @param.depends("bls_file", watch=True)
+    @param.depends("bls_data.file", watch=True)
     def _toggle_visibility(self):
-        if self.bls_file is not None:
-            if self.bls_file.subtype == SubType.SinglePoint_VIPA_v0_1:
+        if self.bls_data.file is not None:
+            if self.bls_data.file.subtype == SubType.SinglePoint_VIPA_v0_1:
                 self.visible = True
                 return
         self.visible = False
     
     def _get_raw_camera_image(self) -> tuple[np.ndarray, tuple[float, float, float, float] | None, float] | None:
-        if self.bls_data is None or self.dataset_zyx_coord is None:
+        if self.bls_data.data is None or self.dataset_zyx_coord is None:
             return None
         # TODO: implement the possibility of loading the spectral line from the analysis results group
-        raw_spectrum, spectral_line, linewidth = single_point_VIPA.get_raw_spectrum_in_image(self.bls_data, self.dataset_zyx_coord)
+        raw_spectrum, spectral_line, linewidth = single_point_VIPA.get_raw_spectrum_in_image(self.bls_data.data, self.dataset_zyx_coord)
         return raw_spectrum, spectral_line, linewidth
     
     @param.depends(
