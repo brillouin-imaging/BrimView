@@ -1,6 +1,7 @@
 import panel as pn
 import asyncio
 from functools import wraps
+import weakref
 
 import numpy as np
 
@@ -33,41 +34,47 @@ def only_on_change(*param_names):
     """
 
     def decorator(func):
-        cache_attr = f"_only_on_change_cache_{func.__name__}"
-        result_attr = f"_only_on_change_result_{func.__name__}"
-
+        @wraps(func)
         def wrapper(self, *args, **kwargs):
-            # Initialize cache dict if it doesn't exist
-            if not hasattr(self, cache_attr):
-                setattr(self, cache_attr, {})
-            cache = getattr(self, cache_attr)
+             # get the state dictionary of the current instance
+            curr_state = wrapper._state_dict.get(self, {})
+     
+            dependencies_value_attr = "dependencies_value"
+            dependencies_changed_attr = "dependencies_changed"
+            last_return_value_attr = "last_return_value"
 
-            # Check if any of the params have changed
-            changed = False
-            for name in param_names:
-                old_val = cache.get(name, object())
-                new_val = getattr(self, name)
-                if old_val != new_val:
-                    changed = True
-                    break
-
-            if not changed:
-                if hasattr(self, result_attr):
+            # Get the current values of the dependencies
+            deps_vals = [getattr(self, dep) for dep in param_names]
+            if not dependencies_value_attr in curr_state:
+                # First call, consider dependencies as changed
+                # N.B. This will also create the attribute "dependencies_changed" on the first call to the wrapper
+                curr_state[dependencies_changed_attr] = True
+            else:
+                # Check if any of the dependencies have changed only if they haven't already been marked as changed
+                if not curr_state[dependencies_changed_attr]:
+                    curr_state[dependencies_changed_attr] = any(
+                        deps_vals[i] != curr_state[dependencies_value_attr][i] for i in range(len(param_names))
+                    )
+            # Store current dependencies values for next comparison
+            curr_state[dependencies_value_attr] = deps_vals
+            
+            if not curr_state[dependencies_changed_attr]: # no change in dependencies
+                if last_return_value_attr in curr_state:
                     logger.debug(f"[{func.__name__}] Skipping (no change), but returning previous value.")
-                    return getattr(self, result_attr)
                 else:
                     logger.debug(f"[{func.__name__}] Skipping (no change), but no previous return value yet.")
-                    return None
+            else:
+                curr_state[last_return_value_attr] = func(self, *args, **kwargs)
+                # we just called the function, so mark dependencies as unchanged for next time
+                curr_state[dependencies_changed_attr] = False
+            
+            # update the state dictionary of the current instance
+            wrapper._state_dict[self] = curr_state
 
-            # Update cache with current values
-            for name in param_names:
-                cache[name] = getattr(self, name)
-
-            # Compute and cache the result
-            result = func(self, *args, **kwargs)
-            setattr(self, result_attr, result)
-            return result
-
+            return curr_state.get(last_return_value_attr, None)
+        # create a state dictionary for the wrapper function to store the state of each instance of the class where the decorated method is defined 
+        if not hasattr(wrapper, "_state_dict"):
+            wrapper._state_dict = weakref.WeakKeyDictionary()
         return wrapper
     return decorator
 
