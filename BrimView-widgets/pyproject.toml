@@ -31,10 +31,10 @@ license-files = ["LICEN[CS]E*"]
 
 # pin to versions of dependencies that were tested with, but allow patch updates
 dependencies = [  
-  "bokeh>=3.8,<3.10",
-  "holoviews>=1.22,<1.23",
-  "panel>=1.8,<1.9",
-  "panel-jstree~=0.3",
+  "bokeh>=3.9,<3.10",
+  "holoviews>=1.23,<1.24",
+  "panel>=1.9,<1.10",
+  "panel-jstree==0.3.5",
   "xarray",
   "brimfile[export-tiff]>=1.6"
 ]
