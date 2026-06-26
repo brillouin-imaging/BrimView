@@ -139,7 +139,6 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     # Records where the user clicked on the (main) plot
     # + as a param, allows other function to react to that
     # plot_clicks = param.NumericTuple(length=3, instantiate=False)
-    _dataset_zyx_click = param.NumericTuple(default=(0, 0, 0))
     dataset_zyx_click = param.NumericTuple(default=(0, 0, 0))
 
     def __init__(self, Bh5file: BlsFileInput, **params):
