@@ -527,7 +527,10 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
         # Generating the streams to record where the user clicked on the plot
         stream = streams.Tap(source=img, x=np.nan, y=np.nan)
-        stream.add_subscriber(self._update_click_param)
+        # TODO: try to understand why the lambda is needed here, and why it doesn't work with a direct call to self._update_click_param
+        # The issue is that when the function _plot_data is not called but returned from cache (@only_on_change), 
+        # the subscriber is destroyed and the click event is not captured anymore.
+        stream.add_subscriber(lambda x, y: self._update_click_param(x, y))
 
         if _GUI_ROI_SELECTION:
             lasso = streams.Lasso(source=img)
@@ -540,7 +543,8 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             )
 
             reset_stream = streams.PlotReset(source=img)
-            reset_stream.add_subscriber(self._reset_mask)
+            # TODO: same as above, try to understand why the lambda is needed here, and why it doesn't work with a direct call to self._reset_mask
+            reset_stream.add_subscriber(lambda: self._reset_mask())
         return img
 
     def _reset_mask(self, resetting=True):
