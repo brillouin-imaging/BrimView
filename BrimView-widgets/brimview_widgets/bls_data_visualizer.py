@@ -157,7 +157,6 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         #     ['x', 'y', 'z'], "value"
         # )
         logger.debug(f"Dataset from init {self.img_dataset}")
-        self.plot = hv.Image([])
         self.histogram = hv.Histogram([])
 
         params["name"] = "Data Analysis visualization"
