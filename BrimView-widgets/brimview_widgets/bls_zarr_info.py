@@ -21,6 +21,15 @@ from .utils import catch_and_notify
 from .logging import logger
 
 
+class _CompatTree(Tree):
+    """Tree widget compatibility shim for Panel/Bokeh property linking."""
+
+    @property
+    def _linked_properties(self):
+        linked = super()._linked_properties
+        return [prop for prop in linked if prop != "title"]
+
+
 class BlsZarrInfo(WidgetBase, PyComponent):
     """
     A widget to display the general file information.
@@ -48,7 +57,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         )
 
         # Tree to display the file structure
-        self.tree = Tree(
+        self.tree = _CompatTree(
             data=[],
             select_multiple=False,
             checkbox=False,
