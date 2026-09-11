@@ -1,6 +1,6 @@
 import panel as pn
+import panel_material_ui as pmui
 import param
-import pandas as pd
 import brimfile as bls
 
 import tempfile
@@ -11,9 +11,9 @@ from panel.io import hold
 from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
 
-from .utils import catch_and_notify
+from .utils import catch_and_notify, loading_spinner
 from .environment import is_running_from_docker, running_from_pyodide
-from .widgets import HorizontalEditableIntSlider
+from .widgets import CustomPMuiCard
 from .logging import logger
 
 
@@ -42,20 +42,29 @@ class BlsFileInput(WidgetBase, PyComponent):
         params["name"] = "File input"
         super().__init__(**params)
 
-        self.spinner = pn.indicators.LoadingSpinner(
-            value=False, size=20, name="Idle", visible=True
+        self.spinner = pmui.CircularProgress(
+            value=False, size=20, label="Idle", visible=True
         )
 
-        self.datagroup_selector_widget = pn.widgets.Select.from_param(
-            self.param.data_group, name="Data Group", disabled=True
+        self.datagroup_selector_widget = pmui.Select.from_param(
+            self.param.data_group, label="Data Group", 
+            sizing_mode="stretch_width",
+            disabled=True
         )
-        self.data_group_index_widget = HorizontalEditableIntSlider.from_param(
-            self.param.data_group_index, name="Index", disabled=True, throttled=True
-        )  # Enabling throttling to avoid too many updates while sliding
-        self.data_group_index_widget.tooltip_text = (
-            "Change which data group is displayed"
-        )
-        self.data_group_index_widget.tooltip_range_or_fixed_range = True
+        self.data_group_index_widget = pmui.EditableIntSlider.from_param(
+                self.param.data_group_index,
+                label="Index",
+                disabled=True,
+                throttled=True,
+                sizing_mode="stretch_width",
+            ) # Enabling throttling to avoid too many updates while sliding
+
+        self.data_group_index_widget_with_tooltip = pmui.Tooltip(
+            self.data_group_index_widget,
+            title="Change which data group is displayed",
+            placement="top",
+            sizing_mode="stretch_width",
+        ) 
 
         def _link_index_to_group(event):
             if self.data_group_index is not None and self.data_group is not None:
@@ -73,51 +82,23 @@ class BlsFileInput(WidgetBase, PyComponent):
         pn.bind(_link_index_to_group, self.param.data_group_index, watch=True)
         pn.bind(_link_group_to_index, self.param.data_group, watch=True)
 
-        self.parameter_selector_widget = pn.widgets.Select.from_param(
-            self.param.data_parameter, name="Parameter", visible=False
+        self.parameter_selector_widget = pmui.Select.from_param(
+            self.param.data_parameter, label="Parameter", visible=False,
+            sizing_mode="stretch_width",
         )
 
     @pn.depends("loading", watch=True)
-    def loading_spinner(self):
-        """
-        Controls an additional spinner UI.
-        This goes on top of the `loading` param that comes with panel widgets.
-
-        This is especially usefull in the `panel convert` case,
-        because some UI elements can't updated easily (or at least in the same way as `panel serve`).
-        In particular, the visible toggle is not always working, and elements inside Rows and Columns sometimes
-        don't get updated.
-        """
-        with param.parameterized.batch_call_watchers(self.spinner):
-            if self.loading:
-                logger.debug("Setting loading spinner to true")
-                self.spinner.value = True
-                self.spinner.name = "Loading..."
-                self.spinner.visible = True
-            else:
-                logger.debug("Setting loading spinner to false")
-                self.spinner.value = False
-                self.spinner.name = "Idle"
-                self.spinner.visible = True
+    def _on_loading(self):
+        loading_spinner(self)  # Call the function from utils.py
 
     @pn.depends("bls_file", watch=True)
     def _update_header(self):
-        # This might be a bit Panel anti-pattern, but it seems to be
-        # the only way to make it also work as expected in the `panel convert` case
-        # If you returned the header/FlexBox directly, then the spinner wouldn't update later on
         if self.bls_file is None:
             title = self.name
         else:
-            title = self.bls_file.filename
+            title = f"File: {self.bls_file.filename}"
 
-        self._header = pn.FlexBox(
-            pn.pane.Markdown(f"### {title}"),
-            self.spinner,
-            align_content="space-between",
-            align_items="center",  # Vertical-ish
-            sizing_mode="stretch_width",
-            justify_content="space-between",
-        )
+        self._main_card.set_title(title)
 
     @catch_and_notify(prefix="<b>Loading file: </b>")
     def external_file_update(self, file: bls.File):
@@ -290,19 +271,24 @@ class BlsFileInput(WidgetBase, PyComponent):
         if running_from_pyodide or is_running_from_docker():
             rw_toggle = None
         else:
-            rw_toggle = pn.widgets.Toggle.from_param(
+            rw_toggle = pmui.Toggle.from_param(
                 self.param.write_allowed,
-                icon="pencil",
-                name="Open with Write Access",
-                button_type="warning",
-                button_style="outline",
+                icon="edit",
+                label="Open with Write Access",
+                color="warning",
+                variant="outlined",
+                sizing_mode="stretch_width",
             )
 
-        self._update_header()
-        return pn.Column(
-            self._header,
-            rw_toggle,
-            self.datagroup_selector_widget,
-            self.data_group_index_widget,
-            self.parameter_selector_widget,
-        )
+        self._main_card = CustomPMuiCard(
+                pmui.Column(
+                    rw_toggle,
+                    self.datagroup_selector_widget,
+                    self.data_group_index_widget_with_tooltip,
+                    self.parameter_selector_widget,
+                ),
+                title=self.name,
+                spinner=self.spinner,
+                sizing_mode="stretch_width",
+            )
+        return self._main_card

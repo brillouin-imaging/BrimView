@@ -270,7 +270,6 @@ class MultiPeakModel(param.Parameterized):
 
 
 if __name__ == "__main__":
-    import scipy
     import matplotlib.pyplot as plt
 
     base_model = BlsProcessingModels.DHO

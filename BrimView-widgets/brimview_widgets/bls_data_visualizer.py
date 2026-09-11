@@ -1,11 +1,10 @@
-from typing import ClassVar
 import panel as pn
-from panel.io import hold
+import panel_material_ui as pmui
 import param
 import holoviews as hv
 from holoviews import streams
 
-from .utils import points_in_polygon
+from .utils import points_in_polygon, loading_spinner
 try:
     import scipy
 
@@ -22,15 +21,13 @@ from .logging import logger
 import brimfile as bls
 from .bls_file_input import BlsFileInput
 from .utils import only_on_change, catch_and_notify
-from .widgets import HorizontalEditableIntSlider
+from .widgets import CustomPMuiCard
 import colorcet as cc
 import pandas as pd
 
-import sys
 
 # DEBUG
 import time
-import datetime as dt
 
 from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
@@ -143,8 +140,8 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
     def __init__(self, Bh5file: BlsFileInput, **params):
 
-        self.spinner = pn.indicators.LoadingSpinner(
-            value=False, size=20, name="Idle", visible=True
+        self.spinner = pmui.CircularProgress(
+            value=False, size=20, label="Idle", visible=True
         )
 
         # Bh5file.param.watch(self._update_data, ["data"])
@@ -166,60 +163,9 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         self.bls_data: bls.Data = Bh5file.param.data
         self.bls_file: bls.File = Bh5file.param.bls_file
 
-        # Because we're not a pn.Viewer anymore, by default we lost the "card" display
-        # so despite us returning a card from __panel__, the shown card didn't match
-        # the card display (background color, shadows)
-        self.css_classes.append("card")
-
     @pn.depends("loading", watch=True)
-    def loading_spinner(self):
-        """
-        Controls an additional spinner UI.
-        This goes on top of the `loading` param that comes with panel widgets.
-
-        This is especially usefull in the `panel convert` case,
-        because some UI elements can't updated easily (or at least in the same way as `panel serve`).
-        In particular, the visible toggle is not always working, and elements inside Rows and Columns sometimes
-        don't get updated.
-        """
-        with param.parameterized.batch_call_watchers(self.spinner):
-            if self.loading:
-                self.spinner.value = True
-                self.spinner.name = "Loading..."
-                self.spinner.visible = True
-            else:
-                self.spinner.value = False
-                self.spinner.name = "Idle"
-                self.spinner.visible = True
-
-    def rewrite_card_header(self, card: pn.Card):
-        """
-        Changes a bit how the header of the card is displayed.
-        We replace the default title by
-            [{self.name}     {spinner}]
-
-        With self.name to the left and spinner to the right
-        """
-        params = {
-            "object": f"<h3>{self.name}</h3>" if self.name else "&#8203;",
-            "css_classes": card.title_css_classes,
-            "margin": (5, 0),
-        }
-        self.spinner.align = ("end", "center")
-        self.spinner.margin = (10, 30)
-        header = pn.FlexBox(
-            pn.pane.HTML(**params),
-            # self.spinner,
-            # pn.Spacer(),  # pushes next item to the right
-            self.spinner,
-            align_content="space-between",
-            align_items="center",  # Vertical-ish
-            sizing_mode="stretch_width",
-            justify_content="space-between",
-        )
-        # header.styles = {"place-content": "space-between"}
-        card.header = header
-        card._header_layout.styles = {"width": "inherit"}
+    def _on_loading(self):
+        loading_spinner(self)  # Call the function from utils.py
 
     @param.depends("bls_data", watch=True)
     @catch_and_notify(prefix="<b>File loading: </b>")
@@ -603,7 +549,26 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             return mask
 
         logger.debug("Updating selection mask")
-        self.mask = lasso_to_mask(geometry, mask_shape)
+
+        # === weird WORKAROUND ===
+        # - this function is being called by stream from Holoview
+        # - it's updating a param variable
+        # - this param variable is linked to another one, that is used to trigger stuff
+        #
+        # *However*: because the initial event comes from Holoviews, it
+        # seems like there's some kind of 'lock' (either on bokeh model, or some batch_process from panel)  and the downstream function
+        # don't update the GUI at the time they're supposed too
+        # (in particular, some widget.loading = True was displaying/updating at the *end* of the function call, not immediately)
+        #
+        # So the workaround is:
+        # - call add_periodic_callback with a function that will update the param (and trigger the downstream stuff)
+        #
+        # This has been tested with `panel serve` and `panel convert`
+
+        def _panel_update():
+            self.mask = lasso_to_mask(geometry, mask_shape)
+
+        pn.state.add_periodic_callback(_panel_update, period=200, count=1)
 
     @(
         param.depends(
@@ -700,9 +665,9 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
                 round(y / self.y_px.value),
                 round(x / self.x_px.value),
             )
-            unit = f"(z={z} {self.z_px.units}, y={y} {self.y_px.units}, x={x} {self.x_px.units})"
+            unit = f"(z={z:.2f} {self.z_px.units}, y={y:.2f} {self.y_px.units}, x={x:.2f} {self.x_px.units})"
             index = f"(z={ self.dataset_zyx_click[0]}, y={ self.dataset_zyx_click[1]}, x={self.dataset_zyx_click[2]})"
-            user_msg = f"Clicked on pixel: <br/> 🌍: {unit} <br/> 🔢: {index}"
+            user_msg = f"Clicked on pixel: \n 🌍: {unit} \n 🔢: {index}"
             logger.info(user_msg)
             pn.state.notifications.info(user_msg)
 
@@ -783,7 +748,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         Converts the current selected and displayed data into a tiff file.
 
         The file is saved in a temporary directory, and
-        it's path/name if returned. panel.widget.FileDownload will then
+        it's path/name if returned. pmui.FileDownload will then
         automatically download the file when the user clicks on the button.
         """
         import tempfile
@@ -811,26 +776,25 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     def __panel__(self):
         """Use some fancier widget for some parameters"""
 
-        self.result_index_dropdown = pn.widgets.Select.from_param(
+        self.result_index_dropdown = pmui.Select.from_param(
             self.param.result_index, width=150
         )
-        self.result_quantity_dropdown = pn.widgets.Select.from_param(
+        self.result_quantity_dropdown = pmui.Select.from_param(
             self.param.result_quantity, width=150
         )
-        self.result_peak_dropdown = pn.widgets.Select.from_param(
+        self.result_peak_dropdown = pmui.Select.from_param(
             self.param.result_peak, width=150
         )
 
-        self.result_download = pn.widgets.FileDownload(
-            name="Click to start download of data",
-            filename="brimview_default.tiff",
+        self.result_download = pmui.FileDownload(
             label="Export as OME-tiff",
-            button_type="primary",
+            filename="brimview_default.tiff",
+            color="primary",
             auto=True,
             callback=self.download_tiff,
         )
 
-        self.result_options = pn.Card(
+        self.result_options = CustomPMuiCard(
             pn.FlexBox(
                 self.result_index_dropdown,
                 self.result_quantity_dropdown,
@@ -847,10 +811,10 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         colormap_picker = pn.widgets.ColorMap.from_param(
             self.param.colormap, options=get_linear_colormaps(), ncols=3
         )
-        autoscale_checkbox = pn.widgets.Checkbox.from_param(
-            self.param.autoscale, name="Autoscale"
+        autoscale_checkbox = pmui.Checkbox.from_param(
+            self.param.autoscale, label="Autoscale"
         )
-        colorrange_picker = pn.widgets.RangeSlider.from_param(
+        colorrange_picker = pmui.RangeSlider.from_param(
             self.param.colorrange,
             start=0,
             end=1,
@@ -858,7 +822,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             value_throttled=0.01,
             disabled=self.autoscale,
         )
-        rendering_options = pn.Card(
+        rendering_options = CustomPMuiCard(
             pn.FlexBox(
                 colormap_picker,
                 autoscale_checkbox,
@@ -881,29 +845,29 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             colorrange_picker.disabled = self.autoscale
 
         # Seems like we need to manually update the widget's bounds
-        self.img_axis_3_slice_widget = HorizontalEditableIntSlider.from_param(
+        self.img_axis_3_slice_widget = pmui.EditableIntSlider.from_param(
             self.param.img_axis_3_slice,
             format="0",
-            name="3rd axis",
+            label="3rd axis",
             width=150,
             fixed_end=0,
             fixed_start=0,  # These will be updated in _update_axis_3
             disabled=True,
             margin=5,
+            inline_layout=True,
+            size="small"
         )
-        self.img_axis_3_slice_widget.tooltip_text = "Change which slice is displayed"
-
-        axis_options = pn.Card(
+        axis_options = CustomPMuiCard(
             pn.FlexBox(
                 # RadioButton has no working name
-                pn.widgets.Select.from_param(self.param.img_axis_1, width=150),
-                pn.widgets.Select.from_param(self.param.img_axis_2, width=150),
+                pmui.Select.from_param(self.param.img_axis_1, width=150),
+                pmui.Select.from_param(self.param.img_axis_2, width=150),
                 pn.Column(
-                    pn.widgets.Select.from_param(
+                    pmui.Select.from_param(
                         self.param.img_axis_3, disabled=True, width=150
                     ),
                 ),
-                pn.widgets.Checkbox.from_param(self.param.use_physical_units),
+                pmui.Checkbox.from_param(self.param.use_physical_units),
                 self.phys_unit_widget,
             ),
             title="Axis options",
@@ -913,12 +877,16 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             margin=5,
         )
 
-        main_card = pn.Card(
+        main_card = CustomPMuiCard(
             pn.Row(self.img_axis_3_slice_widget, align="center"),
-            pn.pane.HoloViews(self._plot_masked_data, sizing_mode="stretch_width"),
+            # wrap the HoloViews pane in a Column to circumvent the bug https://github.com/panel-extensions/panel-material-ui/issues/548
+            pn.Column(
+                pn.pane.HoloViews(self._plot_masked_data, sizing_mode="stretch_width"),
+            ),
             self.result_options,
             axis_options,
             rendering_options,
+            title=self.name,
+            spinner=self.spinner,
         )
-        self.rewrite_card_header(main_card)
         return main_card

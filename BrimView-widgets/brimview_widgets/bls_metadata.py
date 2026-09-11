@@ -34,6 +34,7 @@ class BlsMetadata(WidgetBase, PyComponent):
             disabled=True,
             groupby=["Group"],
             hidden_columns=["Group"],
+            sizing_mode="stretch_width",
             formatters={
                 "Validity": HTMLTemplateFormatter(
                     template="""

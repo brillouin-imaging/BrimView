@@ -1,4 +1,5 @@
 import panel as pn
+import panel_material_ui as pmui
 import holoviews as hv
 import param
 import asyncio
@@ -34,6 +35,10 @@ class BrillouinPeakEstimate(pn.viewable.Viewer):
         """
         Create a Panel widget for the brillouin peak.
         """
+        # TODO(pmui-migration): auto-generated `pn.Param` panel — no pmui equivalent exists;
+        # migrating this means replacing it with explicit `pmui.*.from_param(...)` widgets
+        # per field (see migrating-to-material-ui.md). Deferred along with the rest of this
+        # tab (see TODOs in `BrillouinPeaks`/`BLSTreatOptions` below).
         return pn.Param(self.param, show_name=False, width=300)
 
 
@@ -104,6 +109,11 @@ class BrillouinPeaks(pn.viewable.Viewer):
         """
         Create a Panel widget for the brillouin peak.
         """
+        # TODO(pmui-migration): this whole "(Re-)analyze spectra" tab (BrillouinPeakEstimate's
+        # `pn.Param` auto-panel above, and the plain `pn.widgets.Button`/Select/NumberInput
+        # below) hasn't been migrated to panel-material-ui yet. Deferred for a separate pass -
+        # only the raw `pn.Card` here was swapped to `pmui.Card` for now, since that's a
+        # drop-in change with no risk to the fitting logic.
         add_peak = pn.widgets.Button(
             name="Add Brillouin Peak",
             on_click=self.add_peak,
@@ -112,7 +122,7 @@ class BrillouinPeaks(pn.viewable.Viewer):
             name="Remove Brillouin Peak",
             on_click=self.remove_peak,
         )
-        return pn.Card(
+        return pmui.Card(
             self.tabs,
             add_peak,
             remove_peak,
@@ -134,7 +144,9 @@ class BLSTreatOptions(pn.viewable.Viewer):
         super().__init__(**params)
 
     def __panel__(self):
-        return pn.Card(
+        # TODO(pmui-migration): Select/NumberInput below are still `pn.widgets.*` — see the
+        # TODO in `BrillouinPeaks.__panel__` above, same deferred pass.
+        return pmui.Card(
             pn.widgets.Select.from_param(self.param.model_fit),
             pn.widgets.NumberInput.from_param(self.param.threshold_noise),
             title="General fitting options",
@@ -503,15 +515,21 @@ class BlsDoTreatment(pn.viewable.Viewer):
 
     def __panel__(self):
         """Use some fancier widget for some parameters"""
+        # `width=200` + `sizing_mode="stretch_width"` are contradictory (this was the source
+        # of the "Providing a width-responsive sizing_mode... and a fixed width" console
+        # warning) - dropping the redundant `sizing_mode` keeps the originally-intended fixed
+        # 200px width. (Full pmui.Button migration deferred - see TODOs above.)
         self.btn_process_data = pn.widgets.Button(
             name="Process Data",
             button_type="primary",
             width=200,
-            sizing_mode="stretch_width",
             on_click=self.button_click,
             disabled=True,
         )
 
+        # TODO(pmui-migration): IntInput/Button below (and `self.progress_widget`, from
+        # `progress_widget.py`) are still plain `pn.widgets.*` - deferred along with the rest
+        # of this "(Re-)analyze spectra" tab, see TODOs above.
         self.mean_spectra_n_samples = pn.widgets.IntInput(
             name="Number of spectra to use", value=50, start=1, end=1000, step=50
         )

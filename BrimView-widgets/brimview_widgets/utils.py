@@ -5,6 +5,8 @@ import weakref
 
 import numpy as np
 
+import param
+
 from .logging import logger
 
 def only_on_change(*param_names):
@@ -161,3 +163,24 @@ def points_in_polygon(points, polygon):
         p1x, p1y = p2x, p2y
     
     return inside
+
+def loading_spinner(self):
+    """
+    Controls an additional spinner UI depending on the loading state.
+    This function expects the instance to have a `self.spinner` attribute, which is a Panel widget (e.g., pmui.CircularProgress).
+    and a `self.loading` boolean attribute that indicates whether a loading process is ongoing.
+
+    This is especially usefull in the `panel convert` case,
+    because some UI elements can't updated easily (or at least in the same way as `panel serve`).
+    In particular, the visible toggle is not always working, and elements inside Rows and Columns sometimes
+    don't get updated.
+    """
+    with param.parameterized.batch_call_watchers(self.spinner):
+        if self.loading:
+            self.spinner.value = True
+            self.spinner.label = "Loading..."
+            self.spinner.visible = True
+        else:
+            self.spinner.value = False
+            self.spinner.label = "Idle"
+            self.spinner.visible = True

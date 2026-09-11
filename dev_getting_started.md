@@ -48,3 +48,21 @@ Don't hesitate to open the Browser developer tools to look into the Javascript c
 The `launcher.spec` should be configured to work fine as is. 
 
 Please keep in mind that Pyinstaller only creates an executable for the OS that it is running from (ie on Windows, you can only create a Windows executable).
+
+## Known issues
+
+### Spinners/loading indicators not showing when triggered from HoloViews streams
+When a param update (e.g. `self.loading = True`) is set synchronously inside a callback
+triggered by a HoloViews stream (`Tap`, `Lasso`, `PlotReset`, ...), Bokeh/Panel appears to
+hold a document lock for the whole duration of that callback. As a result, any intermediate
+UI change (like showing a loading spinner before a long computation) is never pushed to the
+browser — the patch is only sent once the callback returns, by which point `loading` is
+already back to `False`.
+
+**Workaround**: defer the param update that starts the chain of computation to a separate
+callback via `pn.state.add_periodic_callback(fn, period=200, count=1)`, instead of setting
+it directly inside the stream's subscriber. This releases the doc lock from the original
+event before the downstream (potentially long) computation runs, allowing intermediate UI
+updates (e.g. spinners) to actually render. See `BlsDataVisualizer._update_click_param`
+(Tap stream) for a working example, versus `BlsDataVisualizer._create_mask_from_lasso`
+(Lasso stream).

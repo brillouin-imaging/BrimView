@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import subprocess
 import shutil
-import sys
 from pathlib import Path
 import platform
 

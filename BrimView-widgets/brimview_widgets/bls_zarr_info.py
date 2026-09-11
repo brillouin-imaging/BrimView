@@ -3,7 +3,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 import panel as pn
-from panel_jstree import Tree
+import panel_material_ui as pmui
 import param
 import pandas as pd
 
@@ -19,15 +19,6 @@ import zarr
 from .lazy_tabs import depends_when_active
 from .utils import catch_and_notify
 from .logging import logger
-
-
-class _CompatTree(Tree):
-    """Tree widget compatibility shim for Panel/Bokeh property linking."""
-
-    @property
-    def _linked_properties(self):
-        linked = super()._linked_properties
-        return [prop for prop in linked if prop != "title"]
 
 
 class BlsZarrInfo(WidgetBase, PyComponent):
@@ -57,16 +48,12 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         )
 
         # Tree to display the file structure
-        self.tree = _CompatTree(
-            data=[],
-            select_multiple=False,
-            checkbox=False,
-            plugins=["wholerow", "sort"],
+        self.tree = pmui.Tree(
+            items=[],
+            multi_select=False,
             min_width=300,
             min_height=300,
         )
-        # We bind the callback to the tree selection event, to update the details window when a node is selected
-        # ( pn.depend(tree.value) is not working, so this is a quick workaround)
         pn.bind(self._tree_selected_callback, self.tree.param.value, watch=True)
 
         # Node details
@@ -84,26 +71,20 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         logger.info("BlsZarrInfo initialized")
 
     @catch_and_notify(prefix="<b>Zarr detail display: </b>")
-    def _tree_selected_callback(self, selected_ids):
+    def _tree_selected_callback(self, selected_items):
         logger.info(
-            f"Zarr tree file selected node changed, selected_ids: {selected_ids}"
+            f"Zarr tree file selected node changed, selected_items: {selected_items}"
         )
-        selected_id = selected_ids[0] if selected_ids else None
-        node = None
-        for n in self.tree.flat_tree:
-            if n["id"] == selected_id:
-                node = n
-                break
-
-        logger.debug(f"Selected node: {node}")
-        if node is None:
+        if not selected_items:
             self.detail_tabulator.value = None
             self.detail_text.object = "Click on a node to see its attributes"
             return
+        node = selected_items[0]
+        logger.debug(f"Selected node: {node}")
         dataframe = dict_to_tabulator_df(node["data"])
         self.detail_tabulator.value = dataframe
         self.detail_text.object = (
-            f"Clicked on node: _{node['text']}_."  # TODO: Display the absolute path
+            f"Clicked on node: _{node['label']}_."  # TODO: Display the absolute path
         )
 
     @depends_when_active("value")
@@ -141,7 +122,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
     @catch_and_notify(prefix="<b>Update Zarr tree: </b>")
     def _update_tree_widget(self):
         if self.value is None:
-            self.tree.data = []
+            self.tree.items = []
             return
         # Display the loading spinner 
         self.tree.loading = True
@@ -150,15 +131,14 @@ class BlsZarrInfo(WidgetBase, PyComponent):
 
             logger.debug("Retrieving json descriptor for the Zarr file")
             json_tree = generate_json_descriptor(file)
-            logger.info("Converting json_descriptor to jstree format")
+            logger.info("Converting json_descriptor to PMUI Tree format")
             tree = json.loads(json_tree)
-            typed_tree = brimfilejson_to_jstree(tree)
-            for root_node in typed_tree:
-                root_node.state = NodeState(opened=True)
+            typed_tree = brimfilejson_to_pmui_tree(tree)
             dict_tree = [asdict(node) for node in typed_tree]
 
             logger.debug("Updating tree widget with new data")
-            self.tree.data = dict_tree
+            self.tree.items = dict_tree
+            self.tree.expanded = [(index,) for index in range(len(dict_tree))]
         finally:
             # Hide the loading spinner (always, even if an exception occurs)
             self.tree.loading = False
@@ -181,45 +161,37 @@ class BlsZarrInfo(WidgetBase, PyComponent):
 
 ### === Helper class, functions and other utils ===
 @dataclass
-class NodeState:
-    opened: bool = False
-    selected: bool = False
-    disabled: bool = False
-
-
-@dataclass
 class TreeNode:
     """
     A class representing a node in the tree structure.
-    Expected to be consumed by the panel_jstree component: you first need to convert
+    Expected to be consumed by the panel-material-ui Tree component: you first need to convert
     it into a dictionary with `asdict()` before passing to the Tree widget.
 
     Contains some shared code between different node type.
     """
 
-    text: str
-    state: Optional[NodeState] = None
+    label: str
     icon: Optional[str] = None
-    children: List["TreeNode"] = field(default_factory=list)
-
     data: Dict[str, Any] = field(
         default_factory=dict
     )  # Allows to store arbitrary  data in the node, that can be used for the details dialog for example
     node_type: str = "group"  # or "array"
+    secondary: Optional[str] = None
+    items: List["TreeNode"] = field(default_factory=list)
 
     def __post_init__(self):
         icon_by_node_type = {
-            "group": "jstree-folder",
-            "array": "jstree-file",
+            "group": "folder",
+            "array": "dataset",
         }
         if self.icon is None:
             self.icon = icon_by_node_type.get(self.node_type, "folder")
 
 
-def brimfilejson_to_jstree(brimfile_descriptor) -> List[TreeNode]:
+def brimfilejson_to_pmui_tree(brimfile_descriptor) -> List[TreeNode]:
     """
     Convert the json_descriptor generated by brimfile into a list of TreeNode,
-    that can be processed by panel_jstree
+    that can be processed by panel-material-ui.
     """
 
     def convert_node(node: dict, node_name) -> Optional[TreeNode]:
@@ -228,8 +200,8 @@ def brimfilejson_to_jstree(brimfile_descriptor) -> List[TreeNode]:
         if node_type == "group":
             children = node.keys() - {"attributes", "node_type"}
             return TreeNode(
-                text=node_name,
-                children=[convert_node(node[child], child) for child in children],
+                label=node_name,
+                items=[convert_node(node[child], child) for child in children],
                 data=attributes,
                 node_type=node_type,
             )
@@ -239,9 +211,10 @@ def brimfilejson_to_jstree(brimfile_descriptor) -> List[TreeNode]:
             human_pretty_shape = f"[ {', '.join(map(str, node['shape']))} ]"
             attributes.update({"shape": human_pretty_shape, "dtype": node["dtype"]})
             return TreeNode(
-                text=node_name,
+                label=node_name,
                 data=attributes,
                 node_type=node_type,
+                secondary=f"shape: {human_pretty_shape}; dtype: {node['dtype']}",
             )
         else:
             return None

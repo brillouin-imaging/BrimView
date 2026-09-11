@@ -1,4 +1,5 @@
 import panel as pn
+import panel_material_ui as pmui
 
 import brimfile as bls
 import HDF5_BLS_treat.treat as bls_processing
@@ -8,7 +9,6 @@ import importlib.metadata
 
 from .environment import running_from_pyodide
 
-from urllib.parse import urljoin
 
 def get_url():
     """
@@ -55,20 +55,36 @@ class DebugReport(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
         # self._debug_button = pn.widgets.ButtonIcon(icon="bug", description="Display debug report")
-        self._debug_markdown = pn.pane.Markdown()
-        self._debug_report = pn.Modal(pn.Column(self._debug_markdown, scroll=True, height=400))
-        self._debug_button = pn.widgets.Button(
-            name="Display debug report",
-            icon="bug",
-            button_style="outline",
+        self._debug_markdown = pmui.Typography(variant='body1')
+        self._debug_report = pmui.Dialog(
+            self._debug_markdown,
+            title="Debug report",
+            width_option="md",
+            sx={
+                "zIndex": 2000,
+                "& .MuiDialog-paper": {
+                    # make sure the dialog is not taller than the viewport height 
+                    # (the navbar is 64px and the dialog is vertically centered)
+                    "maxHeight": "calc(98vh - 128px)",
+                }
+            },
+            close_on_click=True,
+            show_close_button=True,
+        )
+        self._debug_button = pmui.Button(
+            label="Display debug report",
+            icon="bug_report",
+            variant="outlined",
             icon_size="1.1em",
         )
         self._debug_button.on_click(self._show_report)
     
     def _show_report(self, event=None):
-        # Update modal content only when shown
+        # Update dialog content only when shown
         self._debug_markdown.object = self._env_report()
-        self._debug_report.show()
+        # `pmui.Dialog` is opened/closed via the `open` boolean param
+        # (the older `pn.Modal` used `.show()`/`.hide()` instead).
+        self._debug_report.open = True
 
     def _env_report(self):
         other_libs = get_loaded_third_party_versions()  

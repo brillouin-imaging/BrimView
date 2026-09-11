@@ -3,12 +3,15 @@ import numpy as np
 
 from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
+from brimview_widgets.widgets import CustomPMuiCard
+
 import panel as pn
+import panel_material_ui as pmui
 import holoviews as hv
 import xarray as xr
 
 from .logging import logger
-from .utils import only_on_change, catch_and_notify
+from .utils import loading_spinner, only_on_change, catch_and_notify
 
 from brimfile.subtypes import single_point_VIPA
 from brimfile.subtypes import SubType
@@ -39,10 +42,16 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
 
     def __init__(self, result_plot: BlsDataVisualizer, **params):
 
+        self.spinner = pmui.CircularProgress(
+                            value=False, size=20, label="Idle", visible=True
+                        )
+
         params["name"] = "Raw data"
 
         #by default the widget is not visible, it will become visible when a file containing raw data is loaded
         super().__init__(visible=False, **params)
+
+        self.tooltip = "This widget shows the raw data for the selected pixel **for a VIPA spectrometer**, and the spectral line used to compute the spectrum."
 
         # Explicit annotation, because param and type hinting is not working properly
         self.bls_data: bls_param = bls_param(
@@ -54,17 +63,16 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
 
         self.calibration_group = None
 
-        self._enable_switch = pn.widgets.Switch(name='Enabled', value=False)
+        self._enable_switch = pmui.Switch(label='Enabled', value=False)
 
         self._enabled_param = self._enable_switch.param.value
 
-        # Because we're not a pn.Viewer anymore, by default we lost the "card" display
-        # so despite us returning a card from __panel__, the shown card didn't match
-        # the card display (background color, shadows)
-        self.css_classes.append("card")
-
     def _enabled(self) -> bool:
         return self.visible and self._enable_switch.value
+
+    @pn.depends("loading", watch=True)
+    def _on_loading(self):
+        loading_spinner(self)  # Call the function from utils.py
     
     @param.depends("bls_data.file", watch=True)
     def _toggle_visibility(self):
@@ -161,13 +169,16 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         return img
     
     def __panel__(self):
-        # TODO: add tooltip to describe what the card is showing
+        # TODO: ADD
         #       displaying the colormap (and maybe allow to select it)
         #       enabling the tool to hover above a pixel, and display the raw value
-        return pn.Card(
+        card = CustomPMuiCard(
             self._enable_switch,
             pn.pane.HoloViews(self._plot_data, sizing_mode="stretch_width"),
             title=self.name,
+            spinner=self.spinner,
+            tooltip=self.tooltip,
             sizing_mode="stretch_width",
             collapsed = True,
         )
+        return card

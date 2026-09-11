@@ -4,6 +4,11 @@ import datetime
 
 pn.extension()
 
+# TODO(pmui-migration): this widget (used inside the "(Re-)analyze spectra" tab, see
+# bls_do_treatment.py) still uses plain `pn.widgets.Progress`/`pn.pane.Markdown`/`pn.Column`.
+# Deferred along with the rest of that tab - `pmui` only ships Progress/CircularProgress/
+# LinearProgress indicators (see migrating-to-material-ui.md), so this would become
+# `pmui.LinearProgress` when that pass happens.
 class ProgressWidget(pn.Column):
     def __init__(self, step_interval=1, min_interval=0.1, **kwargs):
         self.label = pn.pane.Markdown("### Ready")

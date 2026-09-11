@@ -1,29 +1,26 @@
-import asyncio
-from enum import Enum
 import tempfile
 import pandas as pd
 import panel as pn
 import param
 import holoviews as hv
-from holoviews import streams
 import numpy as np
 import yaml
 import scipy
-import inspect
-import re
 
 import time
 import brimfile as bls
 from .models import BlsProcessingModels, MultiPeakModel
 from .bls_data_visualizer import BlsDataVisualizer
 
-from .utils import catch_and_notify, safe_get
+from .utils import catch_and_notify, safe_get, loading_spinner
 from .logging import logger
 
 from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
 from .bls_types import bls_param
-from .widgets import SwitchWithLabels
+from .widgets import SwitchWithLabels, CustomPMuiCard
+
+import panel_material_ui as pmui
 
 from bokeh.models.widgets.tables import HTMLTemplateFormatter
 
@@ -201,7 +198,7 @@ class FitParam(pn.viewable.Viewer):
         self._table.visible = True
 
     def __panel__(self):
-        return pn.Card(
+        return pmui.Card(
             self._process_switch,
             pn.Row(self._model_dropdown, self._reset_button),
             self._table,
@@ -245,8 +242,8 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
     results_at_point = param.Dict(label="Result values at this point", precedence=-1)
 
     def __init__(self, result_plot: BlsDataVisualizer, **params):
-        self.spinner = pn.indicators.LoadingSpinner(
-            value=False, size=20, name="Idle", visible=True
+        self.spinner = pmui.CircularProgress(
+            value=False, size=20, label="Idle", visible=True
         )
         self.bls_spectrum_in_image = None
         params["name"] = "Spectrum visualization"
@@ -277,11 +274,6 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         # Configure autore_fit widget
         self.auto_refit._reset_button.visible = True
         self._set_early_replot_exit(False)
-
-        # Because we're not a pn.Viewer anymore, by default we lost the "card" display
-        # so despite us returning a card from __panel__, the shown card didn't match
-        # the card display (background color, shadows)
-        self.css_classes.append("card")
 
         # Annoation help
         self.model_fit: BlsProcessingModels
@@ -375,53 +367,8 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         return fits
 
     @pn.depends("loading", watch=True)
-    def loading_spinner(self):
-        """
-        Controls an additional spinner UI.
-        This goes on top of the `loading` param that comes with panel widgets.
-
-        This is especially usefull in the `panel convert` case,
-        because some UI elements can't updated easily (or at least in the same way as `panel serve`).
-        In particular, the visible toggle is not always working, and elements inside Rows and Columns sometimes
-        don't get updated.
-        """
-        if self.loading:
-            self.spinner.value = True
-            self.spinner.name = "Loading..."
-            self.spinner.visible = True
-        else:
-            self.spinner.value = False
-            self.spinner.name = "Idle"
-            self.spinner.visible = True
-
-    def rewrite_card_header(self, card: pn.Card, tooltip: str = None):
-        """
-        Changes a bit how the header of the card is displayed.
-        We replace the default title by
-            [{self.name}     {spinner}]
-
-        With self.name to the left and spinner to the right
-        """
-        params = {
-            "object": f"<h3>{self.name}</h3>" if self.name else "&#8203;",
-            "css_classes": card.title_css_classes,
-            "margin": (5, 0),
-        }
-        self.spinner.align = ("end", "center")
-        self.spinner.margin = (10, 30)
-        header = pn.FlexBox(
-            pn.Row(
-                pn.pane.HTML(**params),
-                pn.widgets.TooltipIcon(value=tooltip) if tooltip else pn.Spacer(),
-            ),
-            self.spinner,
-            align_content="space-between",
-            align_items="center",  # Vertical-ish
-            sizing_mode="stretch_width",
-            justify_content="space-between",
-        )
-        card.header = header
-        card._header_layout.styles = {"width": "inherit"}
+    def _on_loading(self):
+        loading_spinner(self)  # Call the function from utils.py
 
     def fitted_curves(self, x_range: np.ndarray, z, y, x):
         logger.info(f"Computing fitted curves at ({time.time()})")
@@ -604,7 +551,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
                 # If the user is not wanting to display the saved_fit, then let's just do this silently
                 if self.saved_fit.process:
                     pn.state.notifications.warning(
-                        f"<b>Saved fit</b>: Continuing with default peak function <br/> ({e})"
+                        f"`Saved fit`: Continuing with default peak function \n ({e})"
                     )
                 used_model = BlsProcessingModels.Lorentzian
                 tooltip_text = f"Impossible to use file's metadata to determine the peak model. Using a default peak model instead. \n(Reported error: *{e}*)"
@@ -621,7 +568,6 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         else:
             self.bls_spectrum_in_image = None
 
-        # self.loading = False
         now = time.time()
         logger.info(f"retrieve_point_rawdata at {now:.4f} seconds [done]")
         self.loading = False
@@ -667,7 +613,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
                     saved_curves = self.fitted_curves(x_range, z, y, x)
                     curves.extend(saved_curves)
             except Exception as e:
-                pn.state.notifications.warning(f"<b>Plot saved fit: </b> {e}")
+                pn.state.notifications.warning(f"`Plot saved fit:` {e}")
 
             try:
                 if self.auto_refit.process:
@@ -676,7 +622,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
                     )
                     curves.extend(refit_curves)
             except Exception as e:
-                pn.state.notifications.warning(f"<b>Auto-refit: </b> {e}")
+                pn.state.notifications.warning(f"`Auto-refit:` {e}")
 
         else:
             logger.warning("No BLS data available. Cannot plot spectrum.")
@@ -709,6 +655,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
             legend_position="bottom",
             legend_cols=3,
             responsive=True,
+            show_grid=True,
             title=f"Spectrum at index (z={z}, y={y}, x={x})",
         )
 
@@ -804,16 +751,19 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
 
     def __panel__(self):
 
-        card = pn.Card(
+        return CustomPMuiCard(
             pn.pane.HoloViews(
                 self.plot_spectrum,
                 height=300,  # Not the greatest solution
                 sizing_mode="stretch_width",
             ),
-            pn.widgets.FileDownload(callback=self.csv_export, filename="raw_data.csv"),
+            pmui.FileDownload(callback=self.csv_export, 
+                              filename="raw_data.csv",
+                              color="primary",
+                              auto=True,),
             pn.FlexBox(self.auto_refit, self.saved_fit),
-            sizing_mode="stretch_height",
+            title=self.name,
+            spinner=self.spinner,
+            tooltip=self.tooltip,
+            sizing_mode="stretch_width",
         )
-
-        self.rewrite_card_header(card, self.tooltip)
-        return card

@@ -109,8 +109,15 @@ class CustomJSFileInput(WidgetBase):
 
         # Standard panel button
         # Clicking on it triggers file_input.click()
-        self._panel_button_zip = pn.widgets.Button(name="Load a .zip file", button_type="primary", width=200)
-        self._panel_button_zarr = pn.widgets.Button(name="Load a .zarr folder", button_type="primary", width=200)
+        # TODO(pmui-migration): still on plain `pn.widgets.Button` (name=/button_type=)
+        # rather than `pmui.Button` (label=/color=), and the whole card below is a raw
+        # `pn.Card` rather than `pmui.Card`/`CustomPMuiCard`, for consistency with the rest
+        # of the app. Left as-is for now because these buttons carry a `.jscallback()` that
+        # reaches into the Bokeh model's shadow DOM (see `apply_jscallback` below) — `pmui`
+        # widgets are React/ESM-rendered, so this JS wiring needs to be re-verified against
+        # a real compiled Pyodide build (not just `panel serve`) before converting them.
+        self._panel_button_zip = pn.widgets.Button(name="Load a .zip file", button_type="primary", sizing_mode="stretch_width")
+        self._panel_button_zarr = pn.widgets.Button(name="Load a .zarr folder", button_type="primary", sizing_mode="stretch_width")
         self.apply_jscallback()
 
     def apply_jscallback(self):
@@ -207,6 +214,8 @@ class CustomJSFileInput(WidgetBase):
         self.update_function = update_function
 
     def __panel__(self):
+        # TODO(pmui-migration): raw `pn.Card` — see TODO in `__init__` for why this
+        # (and the buttons it wraps) hasn't been switched to `pmui.Card`/`pmui.Button` yet.
         return pn.Card(
             pn.pane.HTML('See <a href="https://brillouin-imaging.github.io/brimfile/brimfile.html#store-types" target="_blank" rel="noopener noreferrer">documentation</a> for supported formats.'), 
             pn.FlexBox(self._html_button, self._panel_button_zip, self._panel_button_zarr),
