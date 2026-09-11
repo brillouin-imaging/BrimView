@@ -1,8 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import copy_metadata
+from PyInstaller.utils.hooks import copy_metadata, collect_data_files
 
-datas = [('src/index.py', 'src/.'), ('src/BrimView.png', 'src/.')]
+datas = [
+    ('src/index.py', 'src/.'), 
+    ('src/BrimView.png', 'src/.')
+    ]
 datas += copy_metadata('pandas')
+datas += collect_data_files('panel_material_ui')
 
 
 a = Analysis(

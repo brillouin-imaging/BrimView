@@ -7,7 +7,7 @@ path = "brimview_widgets/__init__.py"
 
 
 [project]
-name = "Brimview_widgets"
+name = "brimview_widgets"
 dynamic  = ["version"]
 authors = [
     { name = "Carlo Bevilacqua", email = "carlo.bevilacqua@embl.de" },

@@ -35,7 +35,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install "brimview-widgets[processing, localfile, remote-store]"
+          pip install "./BrimView-widgets[processing, localfile, remote-store]"
           pip install pywebview
 
       - name: Build with PyInstaller
