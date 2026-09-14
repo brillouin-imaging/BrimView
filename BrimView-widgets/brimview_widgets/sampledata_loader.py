@@ -2,28 +2,17 @@ import panel as pn
 import panel_material_ui as pmui
 
 from .utils import catch_and_notify
-from .environment import running_from_pyodide
 from .logging import logger
 from .widgets import CustomPMuiCard
 
 class SampledataLoader(pn.viewable.Viewer):
 
     _sampledata = {
-    "Drosophila - LSBM": "https://s3.embl.de/brim-example-files/drosophila_LSBM.brim.zarr",
-    "Zebrafish eye - confocal": "https://s3.embl.de/brim-example-files/zebrafish_eye_confocal.brim.zarr",
-    "Zebrafish ECM - SBS": "https://s3.embl.de/brim-example-files/zebrafish_ECM_SBS.brim.zarr",
-    "Oil beads - FTBM": "https://s3.embl.de/brim-example-files/oil_beads_FTBM.brim.zarr"
+    "Drosophila - LSBM": "https://livingobjects.ebi.ac.uk/bioimaging-integrator-data/S-BIAD3424/drosophila_LSBM.brim.zarr",
+    "Zebrafish eye - confocal": "https://livingobjects.ebi.ac.uk/bioimaging-integrator-data/S-BIAD3424/zebrafish_eye_confocal.brim.zarr",
+    "Zebrafish ECM - SBS": "https://livingobjects.ebi.ac.uk/bioimaging-integrator-data/S-BIAD3424/zebrafish_ECM_SBS.brim.zarr",
+    "Oil beads - FTBM": "https://livingobjects.ebi.ac.uk/bioimaging-integrator-data/S-BIAD3424/oil_beads_FTBM.brim.zarr"
     }
-    
-    if running_from_pyodide:
-        logger.info("Loading sample data from Google cloud")
-        _sampledata = {
-            "Drosophila - LSBM": "https://storage.googleapis.com/brim-example-files/drosophila_LSBM.brim.zarr",
-            "Zebrafish eye - confocal": "https://storage.googleapis.com/brim-example-files/zebrafish_eye_confocal.brim.zarr",
-            "Zebrafish ECM - SBS": "https://storage.googleapis.com/brim-example-files/zebrafish_ECM_SBS.brim.zarr",
-            "Oil beads - FTBM": "https://storage.googleapis.com/brim-example-files/oil_beads_FTBM.brim.zarr"
-        }
-
     def __init__(self, **params):
         super().__init__(**params)
         
