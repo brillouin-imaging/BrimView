@@ -3,8 +3,9 @@ import panel_material_ui as pmui
 
 from .utils import catch_and_notify
 from .logging import logger
+from .widgets import PathSelectorMixin
 
-class S3FileSelector(pn.viewable.Viewer):
+class S3FileSelector(PathSelectorMixin, pn.viewable.Viewer):
 
     def __init__(self, **params):
         super().__init__(**params)
@@ -31,18 +32,6 @@ class S3FileSelector(pn.viewable.Viewer):
             self._after_path_select(s3_path)
         else:
             logger.info("No file selected.")
-    
-    @catch_and_notify(prefix="<b>Open file: </b>")
-    def _after_path_select(self, file_path: str):
-        if self.process_path_fn is not None:
-            self.process_path_fn(file_path)
-    
-    def set_update_function(self, func):
-        """
-        Set the function to be called when a file is selected.
-        This function should accept a single argument, which is the path to the selected file.
-        """
-        self.process_path_fn = func
 
     def __panel__(self):
         return pmui.FlexBox(self.s3_link, self.s3_load_button)

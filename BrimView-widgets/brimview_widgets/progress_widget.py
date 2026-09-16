@@ -41,11 +41,12 @@ class ProgressWidget(pn.Column):
         self._last_update_time = now
         self._last_step = 0
 
-        self.progress.max = total
-        self.progress.value = 0
-        self.label.object = f"### {task}"
-        self.status_text.object = f"0 / {total}"
-        self._update_time_info(current=0)
+        with pn.io.hold():
+            self.progress.max = total
+            self.progress.value = 0
+            self.label.object = f"### {task}"
+            self.status_text.object = f"0 / {total}"
+            self._update_time_info(current=0)
 
     def update(self, current: int, total: int = None):
         now = time.time()
@@ -61,9 +62,10 @@ class ProgressWidget(pn.Column):
         if not should_update:
             return
 
-        self.progress.value = current
-        self.status_text.object = f"{current} / {self.progress.max}"
-        self._update_time_info(current=current)
+        with pn.io.hold():
+            self.progress.value = current
+            self.status_text.object = f"{current} / {self.progress.max}"
+            self._update_time_info(current=current)
 
         self._last_update_time = now
         self._last_step = current

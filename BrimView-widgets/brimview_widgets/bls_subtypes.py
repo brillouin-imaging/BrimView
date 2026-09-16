@@ -61,8 +61,6 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         )
         self.dataset_zyx_coord: param.NumericTuple = result_plot.param.dataset_zyx_click
 
-        self.calibration_group = None
-
         self._enable_switch = pmui.Switch(label='Enabled', value=False)
 
         self._enabled_param = self._enable_switch.param.value

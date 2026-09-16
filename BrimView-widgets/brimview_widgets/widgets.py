@@ -2,6 +2,39 @@ import panel as pn
 import panel_material_ui as pmui
 import param
 
+from .utils import catch_and_notify
+
+
+class PathSelectorMixin:
+    """
+    Shared plumbing for widgets that let the user pick a file/dataset path (S3 link,
+    local file dialog, sample dataset, ...) and forward it to a caller-supplied callback.
+
+    Mix this in *before* the Viewer base class, e.g. ``class Foo(PathSelectorMixin,
+    pn.viewable.Viewer)``, so its cooperative ``super().__init__()`` chain reaches
+    ``Viewer.__init__`` correctly.
+
+    A subclass is responsible for calling ``self._after_path_select(path)`` once a path
+    has actually been chosen (from a button click, drag-and-drop, file dialog, etc.) -
+    this class only owns the "where does the chosen path go" plumbing.
+    """
+
+    def __init__(self, **params):
+        super().__init__(**params)
+        self.process_path_fn = None
+
+    def set_update_function(self, func):
+        """
+        Set the function to be called when a file is selected.
+        This function should accept a single argument, which is the path to the selected file.
+        """
+        self.process_path_fn = func
+
+    @catch_and_notify(prefix="<b>Open file: </b>")
+    def _after_path_select(self, file_path: str):
+        if self.process_path_fn is not None:
+            self.process_path_fn(file_path)
+
 
 def CustomPMuiCard(*objects, spinner=None, tooltip=None, title=None, **params):
     title_typography = pmui.Typography(title or "", variant="h6")
@@ -30,8 +63,6 @@ class SwitchWithLabels(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
 
-        self._label_true = pn.pane.Markdown(self.label_true)
-        self._label_false = pn.pane.Markdown(self.label_false)
         self._switch = pn.widgets.Switch.from_param(self.param.value)
         # Hide the label of the switch itself
         self._switch.name = ""

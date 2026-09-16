@@ -178,10 +178,15 @@ class FitParam(pn.viewable.Viewer):
     def force_single_model(
         self, model: BlsProcessingModels, tooltip_text: None | str = None
     ):
-        self.param.model.objects = {model.label: model}
-        self.model = model
-        if tooltip_text is not None:
-            self.param.model.doc = tooltip_text
+        with pn.io.hold():
+            # Drive the widget's displayed label directly from the {label: value} dict,
+            # but keep the param's own .objects a plain list of values - assigning a dict
+            # straight to a Selector's .objects can leave the widget's labels unpopulated.
+            self._model_dropdown.options = {model.label: model}
+            self.param.model.objects = [model]
+            self.model = model
+            if tooltip_text is not None:
+                self.param.model.doc = tooltip_text
         self._update_model_widget()
 
     @pn.depends(
@@ -281,6 +286,32 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
     def _set_early_replot_exit(self, enable):
         self._early_replot_exit = enable
 
+    @staticmethod
+    def _get_peak_quantities(qts, peak, default=None) -> dict:
+        """
+        Look up width/shift/amplitude/offset for a single peak from the
+        `results_at_point` quantities dict (as produced by
+        `get_spectrum_and_all_quantities_in_image`), using `default` for any
+        quantity that's missing at that point.
+
+        Shared by `_compute_fitted_curves` (saved fit) and `auto_refit_and_plot`
+        (auto re-fit), which both need the same four values per peak.
+        """
+        return {
+            "width": safe_get(
+                qts, bls.Data.AnalysisResults.Quantity.Width.name, peak.name, default=default
+            ),
+            "shift": safe_get(
+                qts, bls.Data.AnalysisResults.Quantity.Shift.name, peak.name, default=default
+            ),
+            "amplitude": safe_get(
+                qts, bls.Data.AnalysisResults.Quantity.Amplitude.name, peak.name, default=default
+            ),
+            "offset": safe_get(
+                qts, bls.Data.AnalysisResults.Quantity.Offset.name, peak.name, default=default
+            ),
+        }
+
     @catch_and_notify(prefix="<b>Compute fitted curves: </b>")
     def _compute_fitted_curves(self, x_range: np.ndarray, z, y, x):
         if self.saved_fit.process is False:
@@ -288,63 +319,17 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
 
         fits = {}
         qts = self.results_at_point
-        fit_params = {}
         df_rows = []
 
         for peak in self.value.analysis.list_existing_peak_types():
-            width = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Width.name,
-                peak.name,
-                default=None,
-            )
-            shift = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Shift.name,
-                peak.name,
-                default=None,
-            )
-            amplitude = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Amplitude.name,
-                peak.name,
-                default=None,
-            )
-            offset = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Offset.name,
-                peak.name,
-                default=None,
-            )
+            quantities = self._get_peak_quantities(qts, peak, default=None)
+            width = quantities["width"]
+            shift = quantities["shift"]
+            amplitude = quantities["amplitude"]
+            offset = quantities["offset"]
 
-            df_rows.append(
-                {
-                    "Peak": peak.name,
-                    "Parameter": "width",
-                    "Value": width,
-                }
-            )
-            df_rows.append(
-                {
-                    "Peak": peak.name,
-                    "Parameter": "shift",
-                    "Value": shift,
-                }
-            )
-            df_rows.append(
-                {
-                    "Peak": peak.name,
-                    "Parameter": "amplitude",
-                    "Value": amplitude,
-                }
-            )
-            df_rows.append(
-                {
-                    "Peak": peak.name,
-                    "Parameter": "offset",
-                    "Value": offset,
-                }
-            )
+            for parameter, value in quantities.items():
+                df_rows.append({"Peak": peak.name, "Parameter": parameter, "Value": value})
 
             if width is None or shift is None or amplitude is None or offset is None:
                 pn.state.notifications.warning(
@@ -400,36 +385,13 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         qts = self.results_at_point
         i = 0
         for peak in self.value.analysis.list_existing_peak_types():
-            width = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Width.name,
-                peak.name,
-                default=0,
-            )
-            shift = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Shift.name,
-                peak.name,
-                default=0,
-            )
-            amplitude = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Amplitude.name,
-                peak.name,
-                default=0,
-            )
-            offset = safe_get(
-                qts,
-                bls.Data.AnalysisResults.Quantity.Offset.name,
-                peak.name,
-                default=0,
-            )
+            quantities = self._get_peak_quantities(qts, peak, default=0)
 
             # Converting to HDF5_BLS_treat naming
-            previous_fits[f"b{i}"] = offset
-            previous_fits[f"a{i}"] = amplitude
-            previous_fits[f"nu0{i}"] = shift
-            previous_fits[f"gamma{i}"] = width
+            previous_fits[f"b{i}"] = quantities["offset"]
+            previous_fits[f"a{i}"] = quantities["amplitude"]
+            previous_fits[f"nu0{i}"] = quantities["shift"]
+            previous_fits[f"gamma{i}"] = quantities["width"]
             i += 1
 
         logger.info(f"[TRACE] saved fit: {previous_fits}")
@@ -501,9 +463,9 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         finally:  # Whether the fit fails or not, we want to store the arguments
             arg_description = self.auto_refit.model.arguments_documentation
 
-            # Saving the different informations from the curve_fit as dict
-            # we use param.update to update all the variable *at the same time*,
-            # and to only trigger the update event once
+            # Saving the different informations from the curve_fit as dict.
+            # These are combined into a single DataFrame below and assigned to
+            # `fitted_parameters` in one write, so only one update/redraw is triggered.
 
             fitted_parameters = multi_peak_model.unflatten_args_grouped(popt)
             upper_bounds = multi_peak_model.unflatten_args_grouped(upper_bounds)

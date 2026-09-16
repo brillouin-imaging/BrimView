@@ -88,7 +88,7 @@ class BrillouinPeaks(pn.viewable.Viewer):
 
             if self.tabs.active >= len(self.tabs.objects):
                 self.tabs.active = len(self.tabs.objects) - 1
-            # self.tabs.active = len(self.tabs) - 1  # Set the last tab as active
+            self._manual_param_trigger(None)  # Trigger the peaks parameter change
         else:
             logger.info("Cannot remove the last peak.")
 
@@ -156,9 +156,6 @@ class BLSTreatOptions(pn.viewable.Viewer):
 
 class BlsDoTreatment(pn.viewable.Viewer):
 
-    peaks_for_treament = BrillouinPeaks()
-    bls_options = BLSTreatOptions()
-
     bls_data = param.ClassSelector(class_=bls.Data, default=None, allow_refs=True)
     bls_file = param.ClassSelector(
         class_=bls.File, default=None, allow_refs=True
@@ -178,6 +175,12 @@ class BlsDoTreatment(pn.viewable.Viewer):
     )
 
     def __init__(self, Bh5file: BlsFileInput, **params):
+        # Created before super().__init__() because `peaks_for_treament.param` is
+        # watched by an on_init=True dependency (fit_parameters_help_ui below), which
+        # fires during super().__init__() and needs the attribute to already exist.
+        self.peaks_for_treament = BrillouinPeaks()
+        self.bls_options = BLSTreatOptions()
+
         # This needs to be called before some pn.depends(init=True) functions
         self.plot_pane = pn.pane.HoloViews()
 
@@ -233,8 +236,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
             PSD_flat = PSD_flat[:, sort_indices]
             logger.debug("Frequency axis for BLS treatment: %s", freq_flat)
             self.bls_treat = bls_treat.Treat(frequency=freq_flat, PSD=PSD_flat)
-
-            # import matplotlib.pyplot as plt  # DEBUG remove later
 
             # Manual type hinting
             peaks: list[BrillouinPeakEstimate] = self.peaks_for_treament.peaks

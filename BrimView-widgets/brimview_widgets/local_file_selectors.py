@@ -6,9 +6,8 @@ _running_from_docker = is_running_from_docker()
 
 from .s3file_selector import S3FileSelector
 
-from .utils import catch_and_notify
 from .logging import logger
-from .widgets import CustomPMuiCard
+from .widgets import CustomPMuiCard, PathSelectorMixin
 
 def load_file_dialog() -> str | None:
     import tkinter as tk
@@ -67,7 +66,7 @@ def drag_and_drop_dialog() -> str | None:
     return file_path_out
 
 
-class TinkerFileSelector(pn.viewable.Viewer):
+class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
     """
     Custom FileSelector that uses a FileDropper widget to select files.
 
@@ -77,7 +76,6 @@ class TinkerFileSelector(pn.viewable.Viewer):
 
     def __init__(self, **params):
         super().__init__(**params)
-        self.local_file = None
 
         # Filedialog button
         self.filedialog_button = pmui.Button(
@@ -104,15 +102,6 @@ class TinkerFileSelector(pn.viewable.Viewer):
             self.s3FileSelector.s3_load_button.clicks +=1
         pn.state.onload(_trigger_S3_loading)
 
-    def _load_s3_file(self, event):
-        s3_path = self.s3_link.value
-        if s3_path:
-            logger.info(f"Selected file: {s3_path}")
-            self._after_path_select(s3_path)
-        else:
-            logger.info("No file selected.")
-
-
     def _select_file_dialog(self, event):
         """
         Opens a file dialog to select a file.
@@ -135,17 +124,12 @@ class TinkerFileSelector(pn.viewable.Viewer):
         else:
             logger.info("No file selected.")
 
-    @catch_and_notify(prefix="<b>Open file: </b>")
-    def _after_path_select(self, file_path: str):
-        if self.process_path_fn is not None:
-            self.process_path_fn(file_path)
-
     def set_update_function(self, func):
         """
         Set the function to be called when a file is selected.
         This function should accept a single argument, which is the path to the selected file.
         """
-        self.process_path_fn = func
+        super().set_update_function(func)
         self.s3FileSelector.set_update_function(func)
 
     def __panel__(self):

@@ -198,9 +198,10 @@ class BlsStatistics(WidgetBase, PyComponent):
             logger.debug(
                 "No data or no points selected, skipping statistics widget update"
             )
-            self.spectrum_plot_widget.object = None
-            self.statistic_tabulator_widget.value = self.placeholder_dataframe()
-            self.statistic_tabulator_widget.visible = False
+            with pn.io.hold():
+                self.spectrum_plot_widget.object = None
+                self.statistic_tabulator_widget.value = self.placeholder_dataframe()
+                self.statistic_tabulator_widget.visible = False
             return
 
         self.loading = True
@@ -222,11 +223,11 @@ class BlsStatistics(WidgetBase, PyComponent):
         # quantities: result[quantity.name][peak.name] = bls.Metadata.Item(value, units)
         df_quantities = self.compute_average_quantities(quantities)
 
-        self.statistic_tabulator_widget.visible = True
-        self.statistic_tabulator_widget.value = df_quantities
-
-        self.tqdm.visible = False
-        self.loading = False
+        with pn.io.hold():
+            self.statistic_tabulator_widget.visible = True
+            self.statistic_tabulator_widget.value = df_quantities
+            self.tqdm.visible = False
+            self.loading = False
 
     def compute_average_spectrum(
         self, spectra

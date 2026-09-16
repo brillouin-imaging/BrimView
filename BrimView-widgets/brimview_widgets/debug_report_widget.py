@@ -54,7 +54,6 @@ class DebugReport(pn.viewable.Viewer):
 
     def __init__(self, **params):
         super().__init__(**params)
-        # self._debug_button = pn.widgets.ButtonIcon(icon="bug", description="Display debug report")
         self._debug_markdown = pmui.Typography(variant='body1')
         self._debug_report = pmui.Dialog(
             self._debug_markdown,

@@ -33,6 +33,26 @@ from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
 
 
+def _defer_param_update(fn):
+    """
+    Schedule `fn` (which should update one or more params) to run shortly after
+    the current callback returns, instead of running it immediately.
+
+    Workaround for HoloViews stream callbacks (Tap/Lasso/PlotReset): a param
+    update triggered directly from inside one of these callbacks doesn't reach
+    the GUI right away - something downstream (either a Bokeh model lock, or
+    some Panel-side batching) holds it back until *after* the callback returns.
+    In particular, a `widget.loading = True` set here would only become visible
+    once the whole callback had finished, defeating the point of a loading
+    indicator.
+
+    Deferring the update via a one-shot periodic callback sidesteps whatever is
+    holding it back, so the GUI updates immediately as expected. Verified to
+    work with both `panel serve` and `panel convert`.
+    """
+    pn.state.add_periodic_callback(fn, period=200, count=1)
+
+
 def get_linear_colormaps() -> dict:
     """
     Creates the dictionnary of of colorpalettes to be displayed in the app.
@@ -360,7 +380,6 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             0,
             len(self.slices) - 1,
         )
-        # self.param.img_axis_3_slice.objects = options
         self.img_axis_3_slice = 0
         self.img_axis_3_slice_widget.fixed_end = len(self.slices) - 1
         self.img_axis_3_slice_widget.fixed_start = 0
@@ -550,25 +569,10 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
         logger.debug("Updating selection mask")
 
-        # === weird WORKAROUND ===
-        # - this function is being called by stream from Holoview
-        # - it's updating a param variable
-        # - this param variable is linked to another one, that is used to trigger stuff
-        #
-        # *However*: because the initial event comes from Holoviews, it
-        # seems like there's some kind of 'lock' (either on bokeh model, or some batch_process from panel)  and the downstream function
-        # don't update the GUI at the time they're supposed too
-        # (in particular, some widget.loading = True was displaying/updating at the *end* of the function call, not immediately)
-        #
-        # So the workaround is:
-        # - call add_periodic_callback with a function that will update the param (and trigger the downstream stuff)
-        #
-        # This has been tested with `panel serve` and `panel convert`
-
-        def _panel_update():
+        def _apply():
             self.mask = lasso_to_mask(geometry, mask_shape)
 
-        pn.state.add_periodic_callback(_panel_update, period=200, count=1)
+        _defer_param_update(_apply)
 
     @(
         param.depends(
@@ -643,23 +647,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             case "z":
                 z = self.img_axis_3_slice * self.z_px.value
 
-        # === weird WORKAROUND ===
-        # - this function is being called by stream from Holoview
-        # - it's updating a param variable
-        # - this param variable is linked to another one, that is used to trigger stuff
-        #
-        # *However*: because the initial event comes from Holoviews, it
-        # seems like there's some kind of 'lock' (either on bokeh model, or some batch_process from panel)  and the downstream function
-        # don't update the GUI at the time they're supposed too
-        # (in particular, some widget.loading = True was displaying/updating at the *end* of the function call, not immediately)
-        #
-        # So the workaround is:
-        # - call add_periodic_callback with a function that will update the param (and trigger the downstream stuff)
-        #
-        # This has been tested with `panel serve` and `panel convert`
-
-        def _panel_update():
-
+        def _apply():
             self.dataset_zyx_click = (
                 round(z / self.z_px.value),
                 round(y / self.y_px.value),
@@ -671,7 +659,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             logger.info(user_msg)
             pn.state.notifications.info(user_msg)
 
-        pn.state.add_periodic_callback(_panel_update, period=200, count=1)
+        _defer_param_update(_apply)
 
     @(
         param.depends(
@@ -727,7 +715,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         if self.autoscale:
             self._update_colorrange()
 
-    @(param.depends("_compute_histogram", "colorrange", watch=True))
+    @(param.depends("_compute_histogram", "colorrange"))
     def _overlay_histogram(self):
         # Create vertical lines at the colorrange limits
         self.vlines = hv.Overlay(

@@ -6,8 +6,6 @@ import brimfile as bls
 import tempfile
 import os
 
-from panel.io import hold
-
 from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
 
@@ -245,7 +243,7 @@ class BlsFileInput(WidgetBase, PyComponent):
     def get_bh5_file(self):
         return self.bls_file
 
-    @hold()
+    @pn.io.hold()
     @catch_and_notify(prefix="<b>Reload fle: </b>")
     def reload_file(self):
         """Reload the BLS file, keeping the current data group and parameters.

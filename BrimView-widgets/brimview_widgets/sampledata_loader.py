@@ -3,9 +3,9 @@ import panel_material_ui as pmui
 
 from .utils import catch_and_notify
 from .logging import logger
-from .widgets import CustomPMuiCard
+from .widgets import CustomPMuiCard, PathSelectorMixin
 
-class SampledataLoader(pn.viewable.Viewer):
+class SampledataLoader(PathSelectorMixin, pn.viewable.Viewer):
 
     _sampledata = {
     "Drosophila - LSBM": "https://livingobjects.ebi.ac.uk/bioimaging-integrator-data/S-BIAD3424/drosophila_LSBM.brim.zarr",
@@ -15,41 +15,29 @@ class SampledataLoader(pn.viewable.Viewer):
     }
     def __init__(self, **params):
         super().__init__(**params)
-        
-        # S3 link input
+
+        # Sample dataset picker
         self.sampledata_load_button = pmui.Button(
             label="Load sample", color="primary", sizing_mode="stretch_width"
         )
-        self.sampledata_load_button.on_click(self._load_s3_file)
-        self.s3_link = pmui.Select(
+        self.sampledata_load_button.on_click(self._load_sample_data)
+        self.dataset_select = pmui.Select(
             label='Dataset',
             options=list(self._sampledata.keys()),
             sizing_mode="stretch_width")
 
-    @catch_and_notify(prefix="<b>Load S3 file: </b>")
-    def _load_s3_file(self, event):
-        s3_path = self._sampledata[self.s3_link.value]
-        if s3_path:
-            logger.info(f"Selected file: {s3_path}")
-            self._after_path_select(s3_path)
+    @catch_and_notify(prefix="<b>Load sample dataset: </b>")
+    def _load_sample_data(self, event):
+        sample_path = self._sampledata[self.dataset_select.value]
+        if sample_path:
+            logger.info(f"Selected sample dataset: {sample_path}")
+            self._after_path_select(sample_path)
         else:
-            logger.info("No file selected.")
-    
-    @catch_and_notify(prefix="<b>Open file: </b>")
-    def _after_path_select(self, file_path: str):
-        if self.process_path_fn is not None:
-            self.process_path_fn(file_path)
-    
-    def set_update_function(self, func):
-        """
-        Set the function to be called when a file is selected.
-        This function should accept a single argument, which is the path to the selected file.
-        """
-        self.process_path_fn = func
+            logger.info("No sample dataset selected.")
 
     def __panel__(self):
         return CustomPMuiCard(
-            pmui.FlexBox(self.s3_link, self.sampledata_load_button),
+            pmui.FlexBox(self.dataset_select, self.sampledata_load_button),
             title="Sample data",
             collapsed=True,
             collapsible=True,
