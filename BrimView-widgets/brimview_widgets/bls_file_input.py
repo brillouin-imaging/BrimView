@@ -94,7 +94,7 @@ class BlsFileInput(WidgetBase, PyComponent):
         if self.bls_file is None:
             title = self.name
         else:
-            title = f"File: {self.bls_file.filename}"
+            title = f"File: {os.path.basename(self.bls_file.filename)}"
 
         self._main_card.set_title(title)
 
