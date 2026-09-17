@@ -90,6 +90,13 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     colorrange = param.Range(default=(0, 1), bounds=None)
     # a parameter controlling whether the autoscale for the color range should be enabled
     autoscale = param.Boolean(default=True)
+    # Fired to tell `_plot_data` specifically to redraw with the current `colorrange`.
+    # `colorrange` itself keeps updating live (continuously) so the widget and the
+    # histogram vlines (`_overlay_histogram`) stay responsive while dragging; only
+    # `_plot_data` (the expensive recompute) should wait for this event, which fires
+    # once the user releases the colorrange_picker slider (`value_throttled`), or
+    # immediately when `colorrange` is set from Python (see `_update_colorrange`).
+    _colorrange_committed = param.Event()
 
     # === **Internal Param**
     #   we need then to pass some signals, but we don't want them to
@@ -175,6 +182,12 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         # )
         logger.debug(f"Dataset from init {self.img_dataset}")
         self.histogram = hv.Histogram([])
+        # Vlines are driven by a Pipe->DynamicMap instead of being rebuilt as a
+        # plain returned object on every `colorrange` change. Pushing the new positions through a stream
+        # lets HoloViews/Bokeh patch the existing plot's vline glyphs in
+        # place, with no DOM churn, while still tracking the drag live.
+        self._vline_pipe = streams.Pipe(data=self.colorrange)
+        self._vlines_dmap = hv.DynamicMap(self._make_vlines, streams=[self._vline_pipe])
 
         params["name"] = "Data Analysis visualization"
         super().__init__(**params)
@@ -452,7 +465,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             "_update_axis_3",  # func
             "img_axis_3_slice",  # variable
             "colormap",  # variable
-            "colorrange",  # variable
+            "_colorrange_committed",  # fires on colorrange_picker release, or immediately from python (autoscale)
             watch=False,  # This function returns something
         )
     )
@@ -716,6 +729,9 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         frame = self._get_datasetslice()
         self.param.colorrange.bounds = frame.range(frame.vdims[0])
         self.colorrange = frame.range(frame.vdims[0])
+        # This is a python-driven change (not a user drag), so _plot_data
+        # should redraw immediately rather than waiting for a slider release.
+        self.param.trigger("_colorrange_committed")
 
     # this function only updates the colorange
     # if autoscale is on
@@ -733,21 +749,29 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         if self.autoscale:
             self._update_colorrange()
 
-    @(param.depends("_compute_histogram", "colorrange"))
-    def _overlay_histogram(self):
-        # Create vertical lines at the colorrange limits
-        self.vlines = hv.Overlay(
+    def _make_vlines(self, data):
+        """Build the vline overlay from the current pipe data (a (lo, hi) tuple)."""
+        lo, hi = data
+        return hv.Overlay(
             [
-                hv.VLine(self.colorrange[0])
-                .opts(color="red", line_dash="dotted")
-                .opts(axiswise=True),
-                hv.VLine(self.colorrange[1])
-                .opts(color="red", line_dash="dotted")
-                .opts(axiswise=True),
+                hv.VLine(lo).opts(color="red", line_dash="dotted").opts(axiswise=True),
+                hv.VLine(hi).opts(color="red", line_dash="dotted").opts(axiswise=True),
             ]
         ).opts(axiswise=True)
 
-        return (self.histogram * self.vlines).opts(axiswise=True)
+    @param.depends("colorrange", watch=True)
+    def _push_colorrange_to_vlines(self):
+        # Cheap: just pushes new data through the pipe, which patches the
+        # already-rendered vline glyphs in place (see `_vline_pipe` in
+        # `__init__`). Deliberately NOT part of `_overlay_histogram`'s own
+        # dependency list below, so dragging the slider never causes
+        # `pn.pane.HoloViews` to treat the histogram pane as returning a new
+        # object.
+        self._vline_pipe.send(self.colorrange)
+
+    @param.depends("_compute_histogram")
+    def _overlay_histogram(self):
+        return (self.histogram * self._vlines_dmap).opts(axiswise=True)
 
     def download_tiff(self):
         """
@@ -820,14 +844,36 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         autoscale_checkbox = pmui.Checkbox.from_param(
             self.param.autoscale, label="Autoscale"
         )
+        # `colorrange` stays a plain, live, two-way `.from_param()` link: it's
+        # also assigned directly from Python (`_update_colorrange`, autoscale),
+        # and passing `throttled=True` here would make that link try to push
+        # Python-side updates into the widget's `value_throttled` too, which
+        # panel-material-ui's RangeSlider declares read-only, raising
+        # "TypeError: Read-only parameter 'value_throttled' cannot be
+        # modified" as soon as autoscale changes `colorrange`.
+        #
+        # `colorrange` itself is intentionally NOT throttled, so the widget
+        # stays responsive and the vlines keep tracking the drag live (via
+        # `_push_colorrange_to_vlines`/`_vline_pipe`, see `__init__` and
+        # `_overlay_histogram` - a plain `colorrange` dependency there used to
+        # rebuild the whole histogram+vlines plot on every drag pixel, which
+        # was enough DOM churn to make the browser jump-scroll to the top).
+        # Only `_plot_data` (the expensive recompute) waits for a release: it
+        # depends on `_colorrange_committed` instead of `colorrange` (see its
+        # definition), which we fire here only once the drag ends.
         colorrange_picker = pmui.RangeSlider.from_param(
             self.param.colorrange,
             start=0,
             end=1,
             step=0.01,
-            value_throttled=0.01,
             disabled=self.autoscale,
         )
+
+        def _commit_colorrange(event):
+            self.param.trigger("_colorrange_committed")
+
+        colorrange_picker.param.watch(_commit_colorrange, "value_throttled")
+
         rendering_options = CustomPMuiCard(
             pn.FlexBox(
                 colormap_picker,
