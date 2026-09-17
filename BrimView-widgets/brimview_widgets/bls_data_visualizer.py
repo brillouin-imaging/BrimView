@@ -422,6 +422,28 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         label = f"{self.img_axis_1}{self.img_axis_2}-{self.img_axis_3}:{self.slices[self.img_axis_3_slice]}{unit}"
         return label
 
+    # Clearing the mask is deliberately its own watcher, not something
+    # `_plot_data` does itself. `_plot_data` and `_plot_mask` are combined in
+    # `_plot_masked_data`, so if `_plot_data` set `mask` directly, that write
+    # would re-enter `_plot_masked_data` -> `_plot_data` while the outer call
+    # is still on the stack (mask is a dependency of `_plot_mask`).
+    @param.depends(
+        "img_dataset",
+        "_update_axis_1",
+        "_update_axis_2",
+        "_update_axis_3",
+        "img_axis_3_slice",
+        watch=True,
+    )
+    @only_on_change(
+            "img_dataset",
+            "img_axis_1",
+            "img_axis_2",
+            "img_axis_3_slice",
+        )
+    def _reset_mask_on_replot(self):
+        self._reset_mask(True)
+
     @(
         param.depends(
             "img_dataset",  # variable
@@ -452,10 +474,6 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         logger.debug("_plot_data")
         frame = self._get_datasetslice()
         img = hv.Image(frame)
-
-        # If we need to replot the data, then the mask is probably meaningless anyways
-        # The argument is needed to match the signature of the PlotReset stream
-        self._reset_mask(True)
 
         if (
             self.bls_data is None
@@ -509,7 +527,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
             reset_stream = streams.PlotReset(source=img)
             # TODO: same as above, try to understand why the lambda is needed here, and why it doesn't work with a direct call to self._reset_mask
-            reset_stream.add_subscriber(lambda: self._reset_mask())
+            reset_stream.add_subscriber(lambda resetting: self._reset_mask(resetting=resetting))
         return img
 
     def _reset_mask(self, resetting=True):
