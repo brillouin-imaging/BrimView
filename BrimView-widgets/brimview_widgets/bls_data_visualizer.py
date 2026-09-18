@@ -78,7 +78,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         default="Treatment 1", objects=["Treatment 1", "Treatment 2", "Treatment 3"]
     )
     result_quantity = param.ObjectSelector(
-        default="Shift", objects=["Shift", "Linewidth", "Offset"]
+        default="Shift", objects=["Shift", "Linewidth", "Amplitude"]
     )
 
     result_peak = param.ObjectSelector(
@@ -252,7 +252,11 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             self.bls_analysis = self.bls_data.get_analysis_results(self.result_index)
 
             # Placeholder until a list_AnalysisQuantites or similar exist
-            quantity_list = self.bls_analysis.list_existing_quantities()
+            quantity_list_AS = self.bls_analysis.list_existing_quantities(bls.AnalysisResults.PeakType.AntiStokes)
+            quantity_list_S = self.bls_analysis.list_existing_quantities(bls.AnalysisResults.PeakType.Stokes)
+            # generate the union of the two lists with elements in the same order 
+            # as they appear in the `Quantity` enum (a union would change the order)
+            quantity_list = tuple([q for q in bls.AnalysisResults.Quantity if q in quantity_list_AS or q in quantity_list_S])
 
             # Update peak types
             peak_list = list(self.bls_analysis.list_existing_peak_types())
