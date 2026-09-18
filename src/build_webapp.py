@@ -111,7 +111,13 @@ def replace_pyodide_import(js_code, new_version):
 # endregion 
 
 # region === Settings ===
-inject_mock_packages = [("zarr", "3.1.2"), ("bokeh-sampledata","2025.0")]
+# `zarr` is no longer mocked out: brimfile's Pyodide `_zarrFile` now uses the
+# real `zarr` package directly (the same one used server-side), so it needs
+# to actually be installed - which `micropip.install(['brimfile', ...])`
+# already does on its own, since `zarr>=3.1.1` is a real (unconditional)
+# brimfile dependency. `bokeh-sampledata` is unrelated to this and still
+# mocked out as before.
+inject_mock_packages = [("bokeh-sampledata", "2025.0")]
 widgets_project_dir = "./BrimView-widgets"
 project_file = "./src/index.py"
 no_jspi_file = "./src/no_jspi.html"
@@ -124,7 +130,16 @@ injection_function= "self.toAbsoluteUrl = function(relativePath, baseUrl = self.
 fileinput_clause = " else if (msg.type === 'load_file') {console.log('[From worker - got \"load_file\" msg]'); loadZarrFile(msg.file); self.postMessage({ type: 'file_loaded'});} "
 
 use_compiled_flag = True  # Set to True if you want to use the compiled version of Pyodide (faster but harder to debug and with some limitations, see https://github.com/pyodide/pyodide/issues/3269 )
-pyodide_version = "0.29.3"  # Specify the desired Pyodide version, it should match the one used by the current version of panel convert
+# IMPORTANT: real zarr 3.x (paired with a compatible numcodecs>=0.14) is only
+# bundled in Pyodide starting at 314.0.1 - confirmed directly against
+# https://pyodide.org/en/314.0.1/usage/packages-in-pyodide.html (zarr 3.2.1 +
+# numcodecs 0.15.1). It was briefly missing from the very first 314.0.0
+# release (17 days earlier) due to a build issue, and every 0.29.x release
+# either has no zarr at all or only the old, incompatible zarr 2.x. This is a
+# bigger jump than just this one line, though: it also means moving to
+# Python 3.14 and re-verifying Panel/Bokeh/JSPI compatibility with the new
+# Pyodide line before shipping - that verification hasn't been done here.
+pyodide_version = "314.0.1"  # Specify the desired Pyodide version, it should match the one used by the current version of panel convert
 
 # endregion 
 

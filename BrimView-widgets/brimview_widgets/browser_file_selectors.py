@@ -172,6 +172,34 @@ class CustomJSFileInput(WidgetBase):
         return bls_file
 
 
+@catch_and_notify(prefix="<b>[load_browser_file]:</b>")
+async def load_browser_file(source, store_type_name: str):
+    """
+    Build a `brimfile.File` directly from a browser-picked file/folder/URL,
+    and store it as the global `bls_file` (see `CustomJSFileInput.get_global_bls`).
+
+    This is the Pyodide-side half of `zarr_wrapper.js`'s `loadZarrFile`: unlike
+    the previous version, `source` is handed straight to `brimfile.File(...)`
+    (which builds the real `zarr.abc.store.Store` for it internally - see
+    `brimfile.file_abstraction`) rather than to a separate JS Zarr client, so
+    there is nothing else to bridge here.
+
+    Args:
+        source: a browser `File` (for `store_type_name="ZIP"`), a JS Array of
+            `File` from a directory picker (`store_type_name="FOLDER"`), or a
+            URL string (`store_type_name="S3"`).
+        store_type_name (str): one of `"ZIP"`, `"FOLDER"`, `"S3"` - matching
+            a name on `brimfile.StoreType`.
+
+    Expected to be called from pyodide / js (see `zarr_wrapper.js`).
+    """
+    import brimfile as bls
+
+    bls_file = bls.File(source, store_type=bls.StoreType[store_type_name])
+    CustomJSFileInput.set_global_bls(bls_file)
+    return bls_file
+
+
     @pn.depends("value", watch=True)
     @catch_and_notify(prefix="<b>[CustomJSFileinput._process_js_msg]:</b>")
     def _process_js_msg(self):

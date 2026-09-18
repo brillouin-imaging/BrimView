@@ -15,10 +15,10 @@ from .bls_statistics import BlsStatistics
 
 # Keep treatment widget out of the wasm package
 if running_from_pyodide:
-    from .browser_file_selectors import CustomJSFileInput
+    from .browser_file_selectors import CustomJSFileInput, load_browser_file
     pass #JSFileInput needs to be in the main python file, not in the widgets package
 else:
     from .bls_zarr_info import BlsZarrInfo
-    from .browser_file_selectors import CustomJSFileInput
+    from .browser_file_selectors import CustomJSFileInput, load_browser_file
     from .local_file_selectors import TinkerFileSelector
     from .bls_do_treatment import BlsDoTreatment
