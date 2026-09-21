@@ -1,4 +1,5 @@
 
+import os
 import subprocess
 import pathlib
 import re
@@ -55,6 +56,19 @@ def generate_mock_package_injection(inject_mock_packages):
         lines.append(f'      micropip.add_mock_package("{name}", "{version}")')
     python_code = "\n".join(lines)
     return python_code
+
+def add_sitecustomize_to_env():
+    env = os.environ.copy()
+    bootstrap = os.path.abspath("src/bootstrap")
+
+    old_pythonpath = env.get("PYTHONPATH")
+
+    env["PYTHONPATH"] = (
+        bootstrap
+        if not old_pythonpath
+        else bootstrap + os.pathsep + old_pythonpath
+    )
+    return env
 
 def replace_library_with_url(js_code, lib_name, custom_url):
     # Match the env_spec array
@@ -146,12 +160,14 @@ print(">> Converting with panel...")
 if use_compiled_flag:
     subprocess.run(
         ["panel", "convert", project_file, "--to", "pyodide-worker", "--out", output_dir, "--compiled"],
-        check=True
+        check=True,
+        env = add_sitecustomize_to_env()
     )
 else:
     subprocess.run(
         ["panel", "convert", project_file, "--to", "pyodide-worker", "--out", output_dir],
-        check=True
+        check=True,
+        env = add_sitecustomize_to_env()
     )
 # endregion
 
