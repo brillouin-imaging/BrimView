@@ -179,12 +179,14 @@ class FitParam(pn.viewable.Viewer):
         self, model: BlsProcessingModels, tooltip_text: None | str = None
     ):
         with pn.io.hold():
+            # Assign the objets first, otherwise updating the model will trigger a ValueError
+            self.param.model.objects = [model]
+            self.model = model
             # Drive the widget's displayed label directly from the {label: value} dict,
             # but keep the param's own .objects a plain list of values - assigning a dict
             # straight to a Selector's .objects can leave the widget's labels unpopulated.
+            # N.B. Updating the dropdown's options before the `model` param can cause an infinite recursion
             self._model_dropdown.options = {model.label: model}
-            self.param.model.objects = [model]
-            self.model = model
             if tooltip_text is not None:
                 self.param.model.doc = tooltip_text
         self._update_model_widget()
@@ -360,8 +362,9 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         fits = self._compute_fitted_curves(x_range, z, y, x)
         curves = []
         for fit in fits:
+            # TODO: check if self.saved_fit.model.name is updated before this function is called, otherwise the label will be wrong
             curves.append(
-                hv.Curve((x_range, fits[fit]), label=f"Fitted lorentzian ({fit})").opts(
+                hv.Curve((x_range, fits[fit]), label=f"Fitted {self.saved_fit.model.name} ({fit})").opts(
                     axiswise=True
                 )
             )

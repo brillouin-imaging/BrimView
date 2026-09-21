@@ -1,21 +1,169 @@
 from enum import Enum
 import inspect
 import re
-import HDF5_BLS_treat.treat as bls_processing
 import param
 import numpy as np
 
 from brimfile.data import Data as bls_data
 
+class CurveFitModel:
+    @staticmethod
+    def lorentzian(nu, b, a, nu0, gamma, IR = None):
+        """Model of a simple lorentzian lineshape
+
+        Parameters
+        ----------
+        nu : array
+            The frequency array
+        b : float
+            The constant offset of the data
+        a : float
+            The amplitude of the peak
+        nu0 : float
+            The center position of the function
+        gamma : float
+            The FWHM linewidth of the function
+        IR : array, optional
+            The impulse response of the instrument, by default None
+
+        Returns
+        -------
+        function
+            The function associated to the given parameters
+        """
+        hwhm = gamma/2
+        func = b + a*hwhm**2/((nu-nu0)**2+hwhm**2)
+        if IR is not None: return np.convolve(func, IR, "same")
+        return func
+    
+    @staticmethod
+    def lorentzian_elastic(nu, ae, be, a, nu0, gamma, IR = None):
+        """Model of a simple lorentzian lineshape
+
+        Parameters
+        ----------
+        nu : array
+            The frequency array
+        ae : float
+            The slope of the first order Taylor expansion of the elastic peak at the position of the peak fitted
+        be : float
+            The constant offset of the data
+        a : float
+            The amplitude of the peak
+        nu0 : float
+            The center position of the function
+        gamma : float
+            The linewidth of the function
+        IR : array, optional
+            The impulse response of the instrument, by default None
+
+        Returns
+        -------
+        function
+            The function associated to the given parameters
+        """
+        func =  ae*nu + CurveFitModel.lorentzian(nu, be, a, nu0, gamma)
+        if IR is not None: return np.convolve(func, IR, "same")
+        return func
+    
+    @staticmethod
+    def DHO(nu, b, a, nu0, gamma, IR = None):
+        """Model of a simple lorentzian lineshape
+
+        Parameters
+        ----------
+        nu : array
+            The frequency array
+        b : float
+            The constant offset of the data
+        a : float
+            The amplitude of the peak
+        nu0 : float
+            The center position of the function
+        gamma : float
+            The linewidth of the function
+        IR : array, optional
+            The impulse response of the instrument, by default None
+
+        Returns
+        -------
+        function
+            The function associated to the given parameters
+        """
+        func = b + a * (gamma*nu0)**2/((nu**2-nu0**2)**2+(gamma*nu)**2)
+        # This is to only generate one peak and not a doublet
+        if np.sign(nu0) == -1: 
+            func = func*(nu<=0)
+        else: 
+            func = func*(nu>=0)
+        if IR is not None: return np.convolve(func, IR, "same")
+        return func 
+    
+    @staticmethod
+    def DHO_elastic(nu, ae, be, a, nu0, gamma, IR = None):
+        """Model of a simple lorentzian lineshape
+
+        Parameters
+        ----------
+        nu : array
+            The frequency array
+        ae : float
+            The slope of the first order Taylor expansion of the elastic peak at the position of the peak fitted
+        be : float
+            The constant offset of the data
+        a : float
+            The amplitude of the peak
+        nu0 : float
+            The center position of the function
+        gamma : float
+            The linewidth of the function
+        IR : array, optional
+            The impulse response of the instrument, by default None
+
+        Returns
+        -------
+        function
+            The function associated to the given parameters
+        """
+        func = ae*nu + CurveFitModel.DHO(nu, be, a, nu0, gamma)
+        if IR is not None: return np.convolve(func, IR, "same")
+        return func
+  
+
+    @staticmethod
+    def gaussian(nu, b, a, nu0, gamma, IR = None):
+        """Model of a simple gaussian lineshape
+        Parameters
+        ----------
+        nu : array
+            The frequency array
+        b : float
+            The constant offset of the data
+        a : float
+            The amplitude of the peak
+        nu0 : float
+            The center position of the function 
+        gamma : float
+            The FWHM of the function
+        IR : array, optional
+            The impulse response of the instrument, by default None
+        Returns
+        -------
+        function
+            The function associated to the given parameters
+        """
+        _2_sigma_squared = gamma**2/(4*np.log(2))
+        func = b + a*np.exp(-(nu-nu0)**2/(_2_sigma_squared))
+        if IR is not None: return np.convolve(func, IR, "same")
+        return func 
+
 
 class BlsProcessingModels(Enum):
-    Lorentzian = ("Lorentzian", bls_processing.Models().lorentzian)
-    LorentzianElastic = (
-        "Lorentzian Elastic",
-        bls_processing.Models().lorentzian_elastic,
-    )
-    DHO = ("DHO", bls_processing.Models().DHO)
-    DHOElastic = ("DHO Elastic", bls_processing.Models().DHO_elastic)
+    Lorentzian = ("Lorentzian", CurveFitModel.lorentzian)
+    LorentzianElastic = ("Lorentzian Elastic", CurveFitModel.lorentzian_elastic)
+    DHO = ("DHO", CurveFitModel.DHO)
+    DHOElastic = ("DHO Elastic", CurveFitModel.DHO_elastic)
+    Gaussian = ("Gaussian", CurveFitModel.gaussian)
 
     @classmethod
     def to_param_dict(cls):
@@ -100,7 +248,7 @@ class BlsProcessingModels(Enum):
     def func_with_bls_args(self, x, shift, width, amplitude, offset):
         match self:
             case BlsProcessingModels.Lorentzian:
-                return bls_processing.Models().lorentzian(
+                return CurveFitModel.lorentzian(
                     nu=x, b=offset, a=amplitude, nu0=shift, gamma=width
                 )
             case BlsProcessingModels.LorentzianElastic:
@@ -108,7 +256,11 @@ class BlsProcessingModels(Enum):
                     "Impossible to call LorentzianElastic: missing 'ae' argument"
                 )
             case BlsProcessingModels.DHO:
-                return bls_processing.Models().DHO(
+                return CurveFitModel.DHO(
+                    nu=x, b=offset, a=amplitude, nu0=shift, gamma=width
+                )
+            case BlsProcessingModels.Gaussian:
+                return CurveFitModel.gaussian(
                     nu=x, b=offset, a=amplitude, nu0=shift, gamma=width
                 )
             case BlsProcessingModels.DHOElastic:
@@ -127,7 +279,7 @@ class BlsProcessingModels(Enum):
             case brimfile_models.DHO:
                 return BlsProcessingModels.DHO
             case brimfile_models.Gaussian:
-                raise Exception("Gaussian function - not yet implemented")
+                return BlsProcessingModels.Gaussian
             case brimfile_models.Voigt:
                 raise Exception("Voigt function - not yet implemented")
             case brimfile_models.Custom:
