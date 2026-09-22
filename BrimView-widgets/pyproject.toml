@@ -34,7 +34,9 @@ dependencies = [
   "bokeh>=3.9,<3.10",
   "holoviews>=1.23,<1.24",
   "panel>=1.9,<1.10",
-  "panel-material-ui>=0.14,<0.15",
+  # consider removing panel-material-ui dependency if it is not used in the code, as it is not a direct dependency
+  # since it is included in panel>=1.9
+  "panel-material-ui>=0.14,<1.0",
   "xarray",
   "brimfile[export-tiff]>=1.6"
 ]
