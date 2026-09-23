@@ -71,6 +71,18 @@ class FitParam(pn.viewable.Viewer):
         }""",
     )
 
+    # Fires ONLY when the user edits a cell in `_table`. 
+    # Deliberately separate from # `fitted_parameters`/`_table.value`: 
+    # those also change every time a fit completes (`_update_table` 
+    # below writes the result back into `_table`),
+    # so a consumer that wants to react to "the user changed a constraint"
+    # must not depend on `_table.value` directly - that value is also the
+    # fit's own write-back target, and depending on it would let a fit's own
+    # write trigger another fit (see `BlsSpectrumVisualizer.plot_spectrum`).
+    constraints_edited = param.Event(
+        doc="Triggered when the user edits a fit-constraint cell in the table."
+    )
+
     def __init__(self, **params):
         super().__init__(**params)
         # Creating some widget
@@ -126,6 +138,9 @@ class FitParam(pn.viewable.Viewer):
             ],
             visible = False
         )
+        # `on_edit` fires only for a genuine user cell edit - never for a
+        # programmatic `.value = ...` assignment (e.g. `_update_table` below)
+        self._table.on_edit(self._on_constraint_edit)
 
         self._reset_button = pn.widgets.Button(
             name="Reset constraints", button_type="primary", visible=False
@@ -137,6 +152,9 @@ class FitParam(pn.viewable.Viewer):
         self.model: BlsProcessingModels
         self.fitted_parameters
         self.process: bool
+
+    def _on_constraint_edit(self, event):
+        self.param.trigger("constraints_edited")
 
     def _update_model_widget(self):
         logger.debug(self.param.model.objects)
@@ -153,6 +171,8 @@ class FitParam(pn.viewable.Viewer):
 
     def _reset_fitted_parameters(self, _event):
         self.fitted_parameters = None
+        # trigger the constraints_edited event to update the table
+        self.param.trigger("constraints_edited")
 
     def _default_dataframe(self, with_fitting_constraint: bool = True):
         if with_fitting_constraint:
@@ -280,13 +300,9 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
 
         # Configure autore_fit widget
         self.auto_refit._reset_button.visible = True
-        self._set_early_replot_exit(False)
 
         # Annoation help
         self.model_fit: BlsProcessingModels
-
-    def _set_early_replot_exit(self, enable):
-        self._early_replot_exit = enable
 
     @staticmethod
     def _get_peak_quantities(qts, peak, default=None) -> dict:
@@ -491,10 +507,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
                         }
                     )
 
-            # To avoid recursion :
-            self._set_early_replot_exit(True)
             self.auto_refit.fitted_parameters = pd.DataFrame(rows)
-            self._set_early_replot_exit(False)
 
     @pn.depends("dataset_zyx_coord", watch=True, on_init=False)
     @catch_and_notify(prefix="<b>Retrieve data: </b>")
@@ -537,26 +550,26 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         logger.info(f"retrieve_point_rawdata at {now:.4f} seconds [done]")
         self.loading = False
 
-    # TODO watch=true for side effect ?
-    # Also: self.auto_refit._table.param.watch(plot_spectrum, 'value')
+    # `auto_refit.constraints_edited` fires only for a genuine user edit of a
+    # Lower/Starting/Upper bound cell (see `FitParam._on_constraint_edit`).
+    # Deliberately NOT `auto_refit._table.value`/`auto_refit.fitted_parameters`:
+    # those are also the write-back target of `auto_refit_and_plot` below, so
+    # depending on them here would make this method's own side effect
+    # re-trigger itself - plot_spectrum -> auto_refit_and_plot ->
+    # auto_refit.fitted_parameters -> auto_refit._table.value -> plot_spectrum
+    # -> ... 
     @pn.depends(
         "results_at_point",
         "saved_fit.process",
         # "saved_fit.model", #this is not user changeable anymore - read from the brimfile instead
         "auto_refit.process",
         "auto_refit.model",
-        "auto_refit._table.value",
+        "auto_refit.constraints_edited",
         "value",
         on_init=False,
     )
     @catch_and_notify(prefix="<b>Plot spectrum: </b>")
     def plot_spectrum(self):
-        # Stops recursion - ( plot_spectrum -> auto_refit_and_plot ->self.auto_refit.fitted_parameters -> auto_refit._table.value -> plot_spectrum -> ... )
-        # We can't use self.loading, because it'S also set to true by retrieve_point_rawdata, and we have
-        # retrieve_point_rawdata -> self.results_at_point -> *this function* and we want that run to be executed
-        if self._early_replot_exit:
-            return
-
         self.loading = True
         now = time.time()
         logger.info(f"plot_spectrum at {now:.4f} seconds")

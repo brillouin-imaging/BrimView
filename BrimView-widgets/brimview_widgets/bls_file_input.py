@@ -64,18 +64,44 @@ class BlsFileInput(WidgetBase, PyComponent):
             sizing_mode="stretch_width",
         ) 
 
+        # `_link_index_to_group` and `_link_group_to_index` each set the param
+        # the other watches, so a change to one nests synchronously into the
+        # other while the first is still running. With well-formed data
+        # (unique values in `data_group.objects`) this already converges -
+        # `list.index()`/`list[i]` are deterministic and idempotent - but that
+        # safety is incidental to the data, not guaranteed by the code. Panel's
+        # own `Reactive.link(..., bidirectional=True)` guards the identical
+        # situation with a small re-entrancy flag (see its `_updating` list in
+        # `panel/reactive.py`); we can't use [`link()`](https://panel.holoviz.org/api/panel.reactive.html#panel.reactive.Reactive.link) 
+        # directly here because this pairing needs an index<->value transform, 
+        # which `link()`'s `bidirectional=True` mode doesn't support (only `callbacks`, which
+        # is one-directional), so we replicate the same guard by hand.
+        self._linking_group_and_index = False
+
         def _link_index_to_group(event):
-            if self.data_group_index is not None and self.data_group is not None:
-                self.data_group = list(self.param.data_group.objects.values())[
-                    self.data_group_index
-                ]
+            if self._linking_group_and_index:
+                return
+            self._linking_group_and_index = True
+            try:
+                if self.data_group_index is not None and self.data_group is not None:
+                    self.data_group = list(self.param.data_group.objects.values())[
+                        self.data_group_index
+                    ]
+            finally:
+                self._linking_group_and_index = False
 
         def _link_group_to_index(event):
-            if self.data_group is not None and self.data_group_index is not None:
-                index = list(self.param.data_group.objects.values()).index(
-                    self.data_group
-                )
-                self.data_group_index = index
+            if self._linking_group_and_index:
+                return
+            self._linking_group_and_index = True
+            try:
+                if self.data_group is not None and self.data_group_index is not None:
+                    index = list(self.param.data_group.objects.values()).index(
+                        self.data_group
+                    )
+                    self.data_group_index = index
+            finally:
+                self._linking_group_and_index = False
 
         pn.bind(_link_index_to_group, self.param.data_group_index, watch=True)
         pn.bind(_link_group_to_index, self.param.data_group, watch=True)

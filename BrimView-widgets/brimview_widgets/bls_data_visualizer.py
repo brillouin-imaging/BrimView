@@ -171,6 +171,11 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             value=False, size=20, label="Idle", visible=True
         )
 
+        # Guards `_update_axis_1`/`_update_axis_2` against re-entrant nested
+        # calls (see the comment on `_update_axis_1`). Set before super() as
+        # a plain instance attribute.
+        self._axis_reconciling = False
+
         # Bh5file.param.watch(self._update_data, ["data"])
         # self.get_bh5_file = Bh5file.get_bh5_file
         self.img_data = np.zeros((512, 512))  # Placeholder for no data
@@ -369,24 +374,46 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
     @param.depends("img_axis_1", watch=True)
     def _update_axis_1(self):
-        dims = ["x", "y", "z"]
-        # Make sure axis_1 and axis_2 are different
-        dims.remove(self.img_axis_1)
-        if self.img_axis_1 == self.img_axis_2:
-            self.img_axis_2 = dims[0]
-        dims.remove(self.img_axis_2)
-        self.img_axis_3 = dims[0]
+        # `_update_axis_1` and `_update_axis_2` can each write the param the
+        # other watches (to resolve an axis-1/axis-2 collision), so a change
+        # to one can nest synchronously into the other while the first is
+        # still running. This currently converges on its own - Param only
+        # refires a watcher on an actual value change, and each function
+        # always steers the *other* axis to a value different from its own
+        # new one - but that safety comes from careful ordering, not from the
+        # code guaranteeing it. Making it self-terminating by construction is
+        # more robust;
+        if self._axis_reconciling:
+            return
+        self._axis_reconciling = True
+        try:
+            dims = ["x", "y", "z"]
+            # Make sure axis_1 and axis_2 are different
+            dims.remove(self.img_axis_1)
+            if self.img_axis_1 == self.img_axis_2:
+                self.img_axis_2 = dims[0]
+            dims.remove(self.img_axis_2)
+            self.img_axis_3 = dims[0]
+        finally:
+            self._axis_reconciling = False
 
     @param.depends("img_axis_2", watch=True)
     def _update_axis_2(self):
-        dims = ["x", "y", "z"]
-        dims.remove(self.img_axis_2)
-        # Make sure axis_1 and axis_2 are different
-        if self.img_axis_1 == self.img_axis_2:
-            self.img_axis_1 = dims[0]
+        # See `_update_axis_1` above - same guard, same reason.
+        if self._axis_reconciling:
+            return
+        self._axis_reconciling = True
+        try:
+            dims = ["x", "y", "z"]
+            dims.remove(self.img_axis_2)
+            # Make sure axis_1 and axis_2 are different
+            if self.img_axis_1 == self.img_axis_2:
+                self.img_axis_1 = dims[0]
 
-        dims.remove(self.img_axis_1)
-        self.img_axis_3 = dims[0]
+            dims.remove(self.img_axis_1)
+            self.img_axis_3 = dims[0]
+        finally:
+            self._axis_reconciling = False
 
     @param.depends("img_axis_3", "_update_img_data", watch=True)
     def _update_axis_3(self):
@@ -707,11 +734,17 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         )
     )
     @only_on_change(
-        "img_dataset",  # variable
-        "_update_axis_1",  # func
-        "_update_axis_2",  # func
-        "_update_axis_3",  # func
-        "img_axis_3_slice",  # variable"
+        # NOTE: only_on_change compares raw attribute values with `!=`. Passing
+        # method names here (as the outer @param.depends does, to piggyback on
+        # their own dependency lists) doesn't work for that: two bound-method
+        # objects for the same instance always compare equal in Python, so
+        # such an entry can never register as "changed" and is dead weight.
+        # List the actual params that `_get_datasetslice()` reads instead.
+        "img_dataset",
+        "img_axis_1",
+        "img_axis_2",
+        "img_axis_3",
+        "img_axis_3_slice",
     )
     def _compute_histogram(self):
         # Seperate function, so we don't recompute the histogram
@@ -723,11 +756,13 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         "bls_file", watch=True
     )  # always update the colorange when a new file is loaded
     @only_on_change(
-        "img_dataset",  # variable
-        "_update_axis_1",  # func
-        "_update_axis_2",  # func
-        "_update_axis_3",  # func
-        "img_axis_3_slice",  # variable"
+        # See the note in `_compute_histogram` above: method names never
+        # register as "changed" here, so list the real params instead.
+        "img_dataset",
+        "img_axis_1",
+        "img_axis_2",
+        "img_axis_3",
+        "img_axis_3_slice",
     )
     def _update_colorrange(self):
         frame = self._get_datasetslice()
