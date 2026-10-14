@@ -83,8 +83,9 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
     def _get_raw_camera_image(self) -> tuple[np.ndarray, tuple[float, float, float, float] | None, float] | None:
         if self.bls_data.data is None or self.dataset_zyx_coord is None:
             return None
-        # TODO: implement the possibility of loading the spectral line from the analysis results group
-        raw_spectrum, spectral_line, linewidth = single_point_VIPA.get_raw_spectrum_in_image(self.bls_data.data, self.dataset_zyx_coord)
+        raw_spectrum, spectral_line, linewidth = single_point_VIPA.get_raw_spectrum_in_image(self.bls_data.data, 
+                                                                                             self.dataset_zyx_coord,
+                                                                                             analysis_results=self.bls_data.analysis)
         return raw_spectrum, spectral_line, linewidth
     
     @param.depends(
