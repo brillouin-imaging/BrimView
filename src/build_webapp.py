@@ -15,8 +15,8 @@ def check_panel_version():
     panel_version = version("panel")
     print("Installed Panel version:", panel_version)
     major, minor, *_ = map(int, panel_version.split("."))
-    if major == 1 and minor>=8:
-        if minor>8:
+    if major == 1 and minor>=10:
+        if minor>10:
             warnings.warn(f"Panel version {panel_version} was not tested, it might not work as expected")
     else:
         raise ValueError(f"Panel version {panel_version} is not supported")
@@ -106,22 +106,6 @@ def replace_library_with_url(js_code, lib_name, custom_url):
 
     return updated_content
 
-def replace_pyodide_import(js_code, new_version):
-    path = "pyc" if use_compiled_flag else "full"
-    # Match the importScripts Pyodide line
-    pattern = re.compile(fr'importScripts\(["\']https://cdn\.jsdelivr\.net/pyodide/v[\d\.]+/{path}/pyodide\.js["\']\);')
-
-    if not pattern.search(js_code):
-        raise ValueError("Pyodide importScripts line not found in the JS file.")
-
-    # Replace version in the matched URL and change to module import
-    replacement = f'import {{ loadPyodide }} from "https://cdn.jsdelivr.net/pyodide/v{new_version}/{path}/pyodide.mjs";'
-    updated_content = pattern.sub(replacement, js_code)
-
-    print(f">> Updated Pyodide version to v{new_version}")
-
-    return updated_content
-
 # endregion 
 
 # region === Settings ===
@@ -138,7 +122,6 @@ injection_function= "self.toAbsoluteUrl = function(relativePath, baseUrl = self.
 fileinput_clause = " else if (msg.type === 'load_file') {console.log('[From worker - got \"load_file\" msg]'); loadZarrFile(msg.file); self.postMessage({ type: 'file_loaded'});} "
 
 use_compiled_flag = True  # Set to True if you want to use the compiled version of Pyodide (faster but harder to debug and with some limitations, see https://github.com/pyodide/pyodide/issues/3269 )
-pyodide_version = "0.29.3"  # Specify the desired Pyodide version, it should match the one used by the current version of panel convert
 
 # endregion 
 
@@ -207,11 +190,7 @@ for overwrite in overwrite_package_path:
     lib_name, custom_url = overwrite
     patched_body = replace_library_with_url(patched_body, lib_name, custom_url)
 
-# === Step 2.5: Replace Pyodide version in worker script
-print(">> Replacing Pyodide import as module in worker script...")
-patched_body = replace_pyodide_import(patched_body, pyodide_version)
-
-# === Step 2.6: Combine and save
+# === Step 2.5: Combine and save
 print(">> Saving patched worker script...")
 final_code = patched_body + "\n\n" + prepend_code.rstrip() + "\n\n" + injection_function + "\n\n" 
 pathlib.Path(worker_script).write_text(final_code)
