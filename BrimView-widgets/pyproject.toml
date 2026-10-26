@@ -15,7 +15,7 @@ authors = [
 ]
 description = "Widget to display Brimfile data in a Panel application"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Operating System :: OS Independent",
     "Development Status :: 4 - Beta",
@@ -31,14 +31,11 @@ license-files = ["LICEN[CS]E*"]
 
 # pin to versions of dependencies that were tested with, but allow patch updates
 dependencies = [  
-  "bokeh>=3.9,<3.10",
+  "bokeh>=3.10,<3.11",
   "holoviews>=1.23,<1.24",
-  "panel>=1.9,<1.10",
-  # consider removing panel-material-ui dependency if it is not used in the code, as it is not a direct dependency
-  # since it is included in panel>=1.9
-  "panel-material-ui>=0.14,<1.0",
+  "panel>=1.10,<1.11",
   "xarray",
-  "brimfile[export-tiff]>=1.6"
+  "brimfile[export-tiff]>=1.7"
 ]
 
 [project.optional-dependencies]
