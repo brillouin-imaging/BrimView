@@ -199,14 +199,17 @@ pathlib.Path(worker_script).write_text(final_code)
 
 # region ===== Step 3: Modify the index.html file
 
-# === Step 3.1: Add the check of jspi and create the worker as a module
-print(">> Replacing worker init inside index.html...")
+# === Step 3.1: Add the check of jspi
+print(">> Adding no jspi redirect...")
 html_path = pathlib.Path(html_page)
 text = html_path.read_text()
-pyodideWorker_replacement_text = 'if (!(typeof WebAssembly !== "undefined" && "Suspending" in WebAssembly)) {window.location.replace("./no_jspi.html")};\n\t\t\t' \
-'const pyodideWorker = new Worker("./index.js", {type: "module"});'
-text = text.replace('const pyodideWorker = new Worker("./index.js");', 
-            pyodideWorker_replacement_text)
+jspi_redirect_text = 'if (!(typeof WebAssembly !== "undefined" && "Suspending" in WebAssembly)) {window.location.replace("./no_jspi.html")};\n\t\t\t' 
+pyodide_worker_line = 'const pyodideWorker = new Worker("./index.js", {type: \'module\'});'
+index = text.find(pyodide_worker_line)
+if index == -1:
+    raise ValueError(f"Couldn't find the line to inject jspi redirect in index.html")
+# add the jspi redirect before the pyodide worker line
+text = text[:index] + jspi_redirect_text + text[index:]
 html_path.write_text(text)
 
 # endregion
