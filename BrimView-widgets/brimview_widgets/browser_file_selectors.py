@@ -99,7 +99,7 @@ class CustomJSFileInput(WidgetBase):
         # Invisible HTML file input button
         self._html_file_button_id = "fileElem"
         self._html_folder_button_id = "folderElem"
-        self._html_button = pn.pane.HTML(
+        self._html_button = pn.ui.HTML(
             f"""
             <input type="file" id="{self._html_folder_button_id}" webkitdirectory directory multiple/>
             <input type="file" id="{self._html_file_button_id}" accept=".zip"/>
@@ -116,8 +116,8 @@ class CustomJSFileInput(WidgetBase):
         # reaches into the Bokeh model's shadow DOM (see `apply_jscallback` below) — `pmui`
         # widgets are React/ESM-rendered, so this JS wiring needs to be re-verified against
         # a real compiled Pyodide build (not just `panel serve`) before converting them.
-        self._panel_button_zip = pn.widgets.Button(name="Load a .zip file", button_type="primary", sizing_mode="stretch_width")
-        self._panel_button_zarr = pn.widgets.Button(name="Load a .zarr folder", button_type="primary", sizing_mode="stretch_width")
+        self._panel_button_zip = pn.ui.Button(label="Load a .zip file", color="primary", sizing_mode="stretch_width")
+        self._panel_button_zarr = pn.ui.Button(label="Load a .zarr folder", color="primary", sizing_mode="stretch_width")
         self.apply_jscallback()
 
     def apply_jscallback(self):
@@ -216,9 +216,9 @@ class CustomJSFileInput(WidgetBase):
     def __panel__(self):
         # TODO(pmui-migration): raw `pn.Card` — see TODO in `__init__` for why this
         # (and the buttons it wraps) hasn't been switched to `pmui.Card`/`pmui.Button` yet.
-        return pn.Card(
-            pn.pane.HTML('See <a href="https://brillouin-imaging.github.io/brimfile/brimfile.html#store-types" target="_blank" rel="noopener noreferrer">documentation</a> for supported formats.'), 
-            pn.FlexBox(self._html_button, self._panel_button_zip, self._panel_button_zarr),
+        return pn.ui.Card(
+            pn.ui.HTML('See <a href="https://brillouin-imaging.github.io/brimfile/brimfile.html#store-types" target="_blank" rel="noopener noreferrer">documentation</a> for supported formats.'), 
+            pn.ui.FlexBox(self._html_button, self._panel_button_zip, self._panel_button_zarr),
             title="Local data",
             margin=5,
         )

@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 import param
 
 from .utils import catch_and_notify
@@ -37,18 +36,18 @@ class PathSelectorMixin:
 
 
 def CustomPMuiCard(*objects, spinner=None, tooltip=None, title=None, **params):
-    title_typography = pmui.Typography(title or "", variant="h6")
-    header = pn.Row(
+    title_typography = pn.ui.Typography(title or "", variant="h6")
+    header = pn.ui.Row(
         title_typography,
-        pn.Spacer(),
+        pn.ui.Spacer(),
         sizing_mode="stretch_width",
         align="center",
     )
     if tooltip is not None:
-        header.append(pn.widgets.TooltipIcon(value=tooltip))
+        header.append(pn.ui.TooltipIcon(value=tooltip))
     if spinner is not None:
         header.append(spinner)
-    card = pmui.Card(*objects, header=header, **params)
+    card = pn.ui.Card(*objects, header=header, **params)
     
     # Add a method to set the title of the card dynamically
     card.set_title = lambda title: setattr(title_typography, "object", title)
@@ -67,7 +66,7 @@ class SwitchWithLabels(pn.viewable.Viewer):
         # Hide the label of the switch itself
         self._switch.name = ""
         self._switch.align = "center"
-        self._layout = pn.Row(self.label_false, self._switch, self.label_true)
+        self._layout = pn.ui.Row(self.label_false, self._switch, self.label_true)
 
     @pn.depends("label_true", watch=True)
     def _update_label_true(self):

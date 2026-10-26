@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 
 from .utils import catch_and_notify
 from .logging import logger
@@ -11,11 +10,11 @@ class S3FileSelector(PathSelectorMixin, pn.viewable.Viewer):
         super().__init__(**params)
         
         # S3 link input
-        self.s3_load_button = pmui.Button(
+        self.s3_load_button = pn.ui.Button(
             label="Load S3 file", color="primary", sizing_mode="stretch_width"
         )
         self.s3_load_button.on_click(self._load_s3_file)
-        self.s3_link = pmui.TextInput(
+        self.s3_link = pn.ui.TextInput(
             label="S3 Link",
             placeholder="Enter S3 link to a file",
             sizing_mode="stretch_width",
@@ -34,4 +33,4 @@ class S3FileSelector(PathSelectorMixin, pn.viewable.Viewer):
             logger.info("No file selected.")
 
     def __panel__(self):
-        return pmui.FlexBox(self.s3_link, self.s3_load_button)
+        return pn.ui.FlexBox(self.s3_link, self.s3_load_button)

@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 import holoviews as hv
 import param
 import asyncio
@@ -39,7 +38,7 @@ class BrillouinPeakEstimate(pn.viewable.Viewer):
         # migrating this means replacing it with explicit `pmui.*.from_param(...)` widgets
         # per field (see migrating-to-material-ui.md). Deferred along with the rest of this
         # tab (see TODOs in `BrillouinPeaks`/`BLSTreatOptions` below).
-        return pn.Param(self.param, show_name=False, width=300)
+        return pn.ui.Param(self.param, show_name=False, width=300)
 
 
 class BrillouinPeaks(pn.viewable.Viewer):
@@ -48,7 +47,7 @@ class BrillouinPeaks(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
         self._peak_watchers = {}  # peak -> list of watchers
-        self.tabs = pn.Tabs(closable=False)
+        self.tabs = pn.ui.Tabs(closable=False)
         self.add_peak(None, position=-6.0, type_pnt="Anti-Stokes", bound_shift=(-8, -4))
         self.add_peak(None, position=6.0, type_pnt="Stokes", bound_shift=(4, 8))
 
@@ -114,15 +113,15 @@ class BrillouinPeaks(pn.viewable.Viewer):
         # below) hasn't been migrated to panel-material-ui yet. Deferred for a separate pass -
         # only the raw `pn.Card` here was swapped to `pmui.Card` for now, since that's a
         # drop-in change with no risk to the fitting logic.
-        add_peak = pn.widgets.Button(
-            name="Add Brillouin Peak",
+        add_peak = pn.ui.Button(
+            label="Add Brillouin Peak",
             on_click=self.add_peak,
         )
-        remove_peak = pn.widgets.Button(
-            name="Remove Brillouin Peak",
+        remove_peak = pn.ui.Button(
+            label="Remove Brillouin Peak",
             on_click=self.remove_peak,
         )
-        return pmui.Card(
+        return pn.ui.Card(
             self.tabs,
             add_peak,
             remove_peak,
@@ -146,7 +145,7 @@ class BLSTreatOptions(pn.viewable.Viewer):
     def __panel__(self):
         # TODO(pmui-migration): Select/NumberInput below are still `pn.widgets.*` — see the
         # TODO in `BrillouinPeaks.__panel__` above, same deferred pass.
-        return pmui.Card(
+        return pn.ui.Card(
             pn.widgets.Select.from_param(self.param.model_fit),
             pn.widgets.NumberInput.from_param(self.param.threshold_noise),
             title="General fitting options",
@@ -182,7 +181,7 @@ class BlsDoTreatment(pn.viewable.Viewer):
         self.bls_options = BLSTreatOptions()
 
         # This needs to be called before some pn.depends(init=True) functions
-        self.plot_pane = pn.pane.HoloViews()
+        self.plot_pane = pn.ui.HoloViews()
 
         self._bls_treatment_lock = asyncio.Lock()
         super().__init__(**params)
@@ -520,9 +519,9 @@ class BlsDoTreatment(pn.viewable.Viewer):
         # of the "Providing a width-responsive sizing_mode... and a fixed width" console
         # warning) - dropping the redundant `sizing_mode` keeps the originally-intended fixed
         # 200px width. (Full pmui.Button migration deferred - see TODOs above.)
-        self.btn_process_data = pn.widgets.Button(
-            name="Process Data",
-            button_type="primary",
+        self.btn_process_data = pn.ui.Button(
+            label="Process Data",
+            color="primary",
             width=200,
             on_click=self.button_click,
             disabled=True,
@@ -531,20 +530,20 @@ class BlsDoTreatment(pn.viewable.Viewer):
         # TODO(pmui-migration): IntInput/Button below (and `self.progress_widget`, from
         # `progress_widget.py`) are still plain `pn.widgets.*` - deferred along with the rest
         # of this "(Re-)analyze spectra" tab, see TODOs above.
-        self.mean_spectra_n_samples = pn.widgets.IntInput(
-            name="Number of spectra to use", value=50, start=1, end=1000, step=50
+        self.mean_spectra_n_samples = pn.ui.IntInput(
+            label="Number of spectra to use", value=50, start=1, end=1000, step=50
         )
-        self.mean_spectra_button = pn.widgets.Button(
-            name="Compute mean spectra",
-            button_type="primary",
+        self.mean_spectra_button = pn.ui.Button(
+            label="Compute mean spectra",
+            color="primary",
             on_click=self.compute_mean_spectra,
             disabled=True,
         )
 
-        return pn.FlexBox(
-            pn.FlexBox(
+        return pn.ui.FlexBox(
+            pn.ui.FlexBox(
                 self.plot_pane,
-                pn.Column(self.mean_spectra_n_samples, self.mean_spectra_button),
+                pn.ui.Column(self.mean_spectra_n_samples, self.mean_spectra_button),
                 self.peaks_for_treament,
                 self.bls_options,
             ),

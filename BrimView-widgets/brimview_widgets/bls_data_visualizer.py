@@ -855,7 +855,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             self.param.result_peak, width=150
         )
 
-        self.result_download = pmui.FileDownload(
+        self.result_download = pn.ui.FileDownload(
             label="Export as OME-tiff",
             filename="brimview_default.tiff",
             color="primary",
@@ -864,7 +864,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         )
 
         self.result_options = CustomPMuiCard(
-            pn.FlexBox(
+            pn.ui.FlexBox(
                 self.result_index_dropdown,
                 self.result_quantity_dropdown,
                 self.result_peak_dropdown,
@@ -914,11 +914,11 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         colorrange_picker.param.watch(_commit_colorrange, "value_throttled")
 
         rendering_options = CustomPMuiCard(
-            pn.FlexBox(
+            pn.ui.FlexBox(
                 colormap_picker,
                 autoscale_checkbox,
                 colorrange_picker,
-                pn.pane.HoloViews(self._overlay_histogram),
+                pn.ui.HoloViews(self._overlay_histogram),
                 align_items="center",
             ),
             title="Rendering options",
@@ -949,11 +949,11 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             size="small"
         )
         axis_options = CustomPMuiCard(
-            pn.FlexBox(
+            pn.ui.FlexBox(
                 # RadioButton has no working name
                 pmui.Select.from_param(self.param.img_axis_1, width=150),
                 pmui.Select.from_param(self.param.img_axis_2, width=150),
-                pn.Column(
+                pn.ui.Column(
                     pmui.Select.from_param(
                         self.param.img_axis_3, disabled=True, width=150
                     ),
@@ -969,10 +969,10 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         )
 
         main_card = CustomPMuiCard(
-            pn.Row(self.img_axis_3_slice_widget, align="center"),
+            pn.ui.Row(self.img_axis_3_slice_widget, align="center"),
             # wrap the HoloViews pane in a Column to circumvent the bug https://github.com/panel-extensions/panel-material-ui/issues/548
-            pn.Column(
-                pn.pane.HoloViews(self._plot_masked_data, sizing_mode="stretch_width"),
+            pn.ui.Column(
+                pn.ui.HoloViews(self._plot_masked_data, sizing_mode="stretch_width"),
             ),
             self.result_options,
             axis_options,

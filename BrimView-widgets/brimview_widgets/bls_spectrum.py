@@ -96,7 +96,7 @@ class FitParam(pn.viewable.Viewer):
 
         self._model_dropdown = pn.widgets.Select.from_param(self.param.model, width=200)
 
-        self._table = pn.widgets.Tabulator(
+        self._table = pn.ui.Tabulator(
             self._default_dataframe(),
             show_index=False,
             disabled=False,
@@ -142,8 +142,8 @@ class FitParam(pn.viewable.Viewer):
         # programmatic `.value = ...` assignment (e.g. `_update_table` below)
         self._table.on_edit(self._on_constraint_edit)
 
-        self._reset_button = pn.widgets.Button(
-            name="Reset constraints", button_type="primary", visible=False
+        self._reset_button = pn.ui.Button(
+            label="Reset constraints", color="primary", visible=False
         )
         self._reset_button.align = ("start", "end")
         self._reset_button.on_click(self._reset_fitted_parameters)
@@ -225,9 +225,9 @@ class FitParam(pn.viewable.Viewer):
         self._table.visible = True
 
     def __panel__(self):
-        return pmui.Card(
+        return pn.ui.Card(
             self._process_switch,
-            pn.Row(self._model_dropdown, self._reset_button),
+            pn.ui.Row(self._model_dropdown, self._reset_button),
             self._table,
             title=self.name,
             margin=5,
@@ -730,16 +730,16 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
     def __panel__(self):
 
         return CustomPMuiCard(
-            pn.pane.HoloViews(
+            pn.ui.HoloViews(
                 self.plot_spectrum,
                 height=300,  # Not the greatest solution
                 sizing_mode="stretch_width",
             ),
-            pmui.FileDownload(callback=self.csv_export, 
+            pn.ui.FileDownload(callback=self.csv_export, 
                               filename="raw_data.csv",
                               color="primary",
                               auto=True,),
-            pn.FlexBox(self.auto_refit, self.saved_fit),
+            pn.ui.FlexBox(self.auto_refit, self.saved_fit),
             title=self.name,
             spinner=self.spinner,
             tooltip=self.tooltip,

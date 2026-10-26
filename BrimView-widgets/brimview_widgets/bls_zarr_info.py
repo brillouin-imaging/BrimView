@@ -3,7 +3,6 @@ import json
 from typing import Any, Dict, List, Optional
 
 import panel as pn
-import panel_material_ui as pmui
 import param
 import pandas as pd
 
@@ -36,11 +35,11 @@ class BlsZarrInfo(WidgetBase, PyComponent):
     active = param.Boolean(default=False, allow_refs=True)  
 
     def __init__(self, **params):
-        self.title = pn.pane.Markdown("## Zarr file information")
+        self.title = pn.ui.Markdown("## Zarr file information")
         super().__init__(**params)
 
         # Tabulator to display zarr info
-        self.info_tabulator = pn.widgets.Tabulator(
+        self.info_tabulator = pn.ui.Tabulator(
             show_index=False,
             disabled=True,
             visible=True,
@@ -48,7 +47,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         )
 
         # Tree to display the file structure
-        self.tree = pmui.Tree(
+        self.tree = pn.ui.Tree(
             items=[],
             multi_select=False,
             min_width=300,
@@ -57,8 +56,8 @@ class BlsZarrInfo(WidgetBase, PyComponent):
         pn.bind(self._tree_selected_callback, self.tree.param.value, watch=True)
 
         # Node details
-        self.detail_text = pn.pane.Markdown("Click on a node to see its attributes")
-        self.detail_tabulator = pn.widgets.Tabulator(
+        self.detail_text = pn.ui.Markdown("Click on a node to see its attributes")
+        self.detail_tabulator = pn.ui.Tabulator(
             show_index=False,
             disabled=True,
             visible=True,
@@ -92,14 +91,14 @@ class BlsZarrInfo(WidgetBase, PyComponent):
     def _size_widget(self):
         logger.info("Calculating Zarr file size")
         if self.value is None:
-            return pn.pane.Markdown("")
+            return pn.ui.Markdown("")
 
         store = self.value._file._store
         size = sync(store.getsize_prefix("/"))
         readable_size = bytes_human_string(size)
         msg = f"Reported file size: **{readable_size}** (= {size} bytes)"
         logger.debug(msg)
-        return pn.pane.Markdown(msg)
+        return pn.ui.Markdown(msg)
 
     @depends_when_active("value", watch=True)
     @catch_and_notify(prefix="<b>Zarr file info: </b>")
@@ -144,16 +143,16 @@ class BlsZarrInfo(WidgetBase, PyComponent):
             self.tree.loading = False
 
     def __panel__(self):
-        return pn.Column(
+        return pn.ui.Column(
             self.title,
-            pn.Row(
+            pn.ui.Row(
                 self.info_tabulator,
                 pn.param.ParamMethod(self._size_widget, loading_indicator=True),
             ),
-            pn.layout.Divider(height=10, margin=10),
-            pn.FlexBox(
-                pn.Column("### Zarr file tree", self.tree),
-                pn.Column(self.detail_text, "### Attributes", self.detail_tabulator),
+            pn.ui.Divider(height=10, margin=10),
+            pn.ui.FlexBox(
+                pn.ui.Column("### Zarr file tree", self.tree),
+                pn.ui.Column(self.detail_text, "### Attributes", self.detail_tabulator),
                 sizing_mode="scale_width",
             ),
         )

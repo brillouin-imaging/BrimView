@@ -57,7 +57,7 @@ class BlsFileInput(WidgetBase, PyComponent):
                 sizing_mode="stretch_width",
             ) # Enabling throttling to avoid too many updates while sliding
 
-        self.data_group_index_widget_with_tooltip = pmui.Tooltip(
+        self.data_group_index_widget_with_tooltip = pn.ui.Tooltip(
             self.data_group_index_widget,
             title="Change which data group is displayed",
             placement="top",
@@ -305,7 +305,7 @@ class BlsFileInput(WidgetBase, PyComponent):
             )
 
         self._main_card = CustomPMuiCard(
-                pmui.Column(
+                pn.ui.Column(
                     rw_toggle,
                     self.datagroup_selector_widget,
                     self.data_group_index_widget_with_tooltip,
