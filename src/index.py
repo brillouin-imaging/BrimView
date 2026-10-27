@@ -164,18 +164,10 @@ def build_ui():
 
         def load_s3_file(file_path):
             """
-            This funciton is used to load a zarr file from S3 in pyodide.
-            It uses the `loadZarrFile` function defined in `index.js`
+            Open a zarr file from S3 in Pyodide, as a `bls.File`.
             """
-            from js import loadZarrFile
-
-            # loadZarrFile requires a list as input, even for a single file, so we wrap the file_path in a list
-            if not loadZarrFile([file_path]):
-                raise ValueError(f"Failed to load file {file_path} from S3")
-                        
-            # loadZarrFile stores the bls_file in the global scope of the CustomJSFileInput module
-            bls_file = brimview_widgets.CustomJSFileInput().get_global_bls()
-            return bls_file
+            # open_browser_zarr expects a list, even for a single URL (same input as a list of picked files)
+            return brimview_widgets.open_browser_zarr([file_path])
 
         s3_file_selector.set_update_function(
             lambda file_path: FileSelector.external_file_update(

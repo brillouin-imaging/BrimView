@@ -119,7 +119,7 @@ output_dir = "pyodide"
 injection_file = f"./src/zarr_wrapper.js"  # The file you want to prepend
 injection_function= "self.toAbsoluteUrl = function(relativePath, baseUrl = self.location.href) { return new URL(relativePath, baseUrl).href;}"
 
-fileinput_clause = " else if (msg.type === 'load_file') {console.log('[From worker - got \"load_file\" msg]'); loadZarrFile(msg.file); self.postMessage({ type: 'file_loaded'});} "
+fileinput_clause = " else if (msg.type === 'load_file') { handleLoadFile(msg); } "  # defined in zarr_wrapper.js
 
 use_compiled_flag = True  # Set to True if you want to use the compiled version of Pyodide (faster but harder to debug and with some limitations, see https://github.com/pyodide/pyodide/issues/3269 )
 
@@ -204,12 +204,16 @@ print(">> Adding no jspi redirect...")
 html_path = pathlib.Path(html_page)
 text = html_path.read_text()
 jspi_redirect_text = 'if (!(typeof WebAssembly !== "undefined" && "Suspending" in WebAssembly)) {window.location.replace("./no_jspi.html")};\n\t\t\t' 
+# `window.pyodideWorker`: the file picker (browser_file_picker.js) posts the picked files to the worker.
+# Panel declares the worker as a top-level `const`, which is not a property of `window`, so we publish it.
+publish_worker_text = '\n\t\t\twindow.pyodideWorker = pyodideWorker;'
 pyodide_worker_line = 'const pyodideWorker = new Worker("./index.js", {type: \'module\'});'
 index = text.find(pyodide_worker_line)
 if index == -1:
     raise ValueError(f"Couldn't find the line to inject jspi redirect in index.html")
-# add the jspi redirect before the pyodide worker line
-text = text[:index] + jspi_redirect_text + text[index:]
+line_end = index + len(pyodide_worker_line)
+# add the jspi redirect before the pyodide worker line, and publish the worker right after it
+text = text[:index] + jspi_redirect_text + text[index:line_end] + publish_worker_text + text[line_end:]
 html_path.write_text(text)
 
 # endregion

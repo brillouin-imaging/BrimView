@@ -1,7 +1,5 @@
 __version__ = "0.5.1"
 
-import sys
-
 from .bls_file_input import BlsFileInput
 from .bls_data_visualizer import BlsDataVisualizer
 from .bls_subtypes import BlsRawDataVisualizer
@@ -13,12 +11,10 @@ from .debug_report_widget import DebugReport
 from .environment import running_from_pyodide
 from .bls_statistics import BlsStatistics
 
+from .browser_file_selectors import CustomJSFileInput, open_browser_zarr
+
 # Keep treatment widget out of the wasm package
-if running_from_pyodide:
-    from .browser_file_selectors import CustomJSFileInput
-    pass #JSFileInput needs to be in the main python file, not in the widgets package
-else:
+if not running_from_pyodide:
     from .bls_zarr_info import BlsZarrInfo
-    from .browser_file_selectors import CustomJSFileInput
     from .local_file_selectors import TinkerFileSelector
     from .bls_do_treatment import BlsDoTreatment
