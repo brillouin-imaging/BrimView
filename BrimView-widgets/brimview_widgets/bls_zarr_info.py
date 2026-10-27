@@ -67,7 +67,7 @@ class BlsZarrInfo(WidgetBase, PyComponent):
 
         # Explicit annotation, because param and type hinting is not working properly
         self.value: bls.Data
-        logger.info("BlsZarrInfo initialized")
+        logger.debug("BlsZarrInfo initialized")
 
     @catch_and_notify(prefix="<b>Zarr detail display: </b>")
     def _tree_selected_callback(self, selected_items):

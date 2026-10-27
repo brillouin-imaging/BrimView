@@ -64,7 +64,6 @@ class BrillouinPeaks(pn.viewable.Viewer):
         peak = BrillouinPeakEstimate(name=f"Peak {n_peaks + 1}", **params)
         self.peaks.append(peak)
         self._watch_peak_params(peak)
-        logger.debug(self.peaks)
         self.tabs.append((peak.name, peak))
         self._manual_param_trigger(None)  # Trigger the peaks parameter change
 
@@ -89,7 +88,7 @@ class BrillouinPeaks(pn.viewable.Viewer):
                 self.tabs.active = len(self.tabs.objects) - 1
             self._manual_param_trigger(None)  # Trigger the peaks parameter change
         else:
-            logger.info("Cannot remove the last peak.")
+            logger.warning("Cannot remove the last peak.")
 
     def _unwatch_peak_params(self, peak):
         watchers = self._peak_watchers.pop(peak, [])
@@ -197,7 +196,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
         """
         Handle button click event to process data.
         """
-        logger.debug("Button clicked!")
         pn.state.execute(self.process_and_save_treatment)
 
     @catch_and_notify(prefix="<b>_process_and_save_treatment</b> - ")
@@ -264,7 +262,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
                 )
 
             # Defining the model for fitting the peaks
-            logger.debug(self.bls_options.model_fit)
             self.bls_treat.define_model(
                 model=self.bls_options.model_fit, elastic_correction=False
             )  # You can also try with "Lorentzian" model and add elastic corrections by setting the parameter to True for both lineshapes.
@@ -296,10 +293,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
             tf = time.time() - t0
             self.progress_widget.finish()
 
-            logger.debug(f"shift: {self.bls_treat.shift.shape}")
-            logger.debug(f"amplitude: {self.bls_treat.amplitude.shape}")
-            logger.debug(f"linewidth: {self.bls_treat.linewidth}")
-
             # Combining the two fitted peaks together here weighing the result on the standard deviation of the shift
             # self.bls_treat.combine_results_FSR(
             #    FSR=15,
@@ -309,8 +302,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
             # )
 
             logger.info(f"Time for fitting all spectra: {tf:.2f} s")
-
-            logger.debug(self.bls_treat.shift)
             logger.info(
                 f"Average time for a single spectrum: {1e3*tf/np.prod(len(self.bls_treat.shift)):.2f} ms"
             )
@@ -319,9 +310,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
     async def _save_bls_treatment(self):
         if self.bls_treat is None:
             raise ValueError("No BLS treatment available.")
-        logger.debug(f"shift: {self.bls_treat.shift.shape}")
-        logger.debug(f"amplitude: {self.bls_treat.amplitude.shape}")
-        logger.debug(f"linewidth: {self.bls_treat.linewidth.shape}")
 
         fitted_peaks = []
         model = self.bls_options.model_fit
@@ -419,7 +407,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
             (PSD, frequency, PSD_units, frequency_units) = self.bls_data.get_PSD_as_spatial_map(broadcast_frequency=True)
             self.mean_spectra_n_samples.end = np.prod(PSD.shape[:-1])
             self.mean_spectra_n_samples.start = 1
-            logger.debug(PSD.shape)
 
     @catch_and_notify(prefix="<b>Compute mean spectra: </b>")
     def compute_mean_spectra(self, event):
@@ -496,7 +483,7 @@ class BlsDoTreatment(pn.viewable.Viewer):
             PSD_units,
         ) = self.mean_spectra
         if common_freq is None and mean_spectrum is None:
-            logger.error("Curve is None !")
+            logger.error("Curve is None!")
             plot = peak_spans
 
         else:

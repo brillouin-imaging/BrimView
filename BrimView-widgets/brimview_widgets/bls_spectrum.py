@@ -157,17 +157,12 @@ class FitParam(pn.viewable.Viewer):
         self.param.trigger("constraints_edited")
 
     def _update_model_widget(self):
-        logger.debug(self.param.model.objects)
         if len(self.param.model.objects) == 1:
             self._model_dropdown.disabled = True
             self._model_dropdown.description = self.param.model.doc
         else:
             self._model_dropdown.disabled = False
             self._model_dropdown.description = self.param.model.doc
-
-    @pn.depends("_table.value")
-    def _test_table_update(self):
-        logger.debug("table")
 
     def _reset_fitted_parameters(self, _event):
         self.fitted_parameters = None
@@ -572,7 +567,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
     def plot_spectrum(self):
         self.loading = True
         now = time.time()
-        logger.info(f"plot_spectrum at {now:.4f} seconds")
+        logger.debug(f"plot_spectrum at {now:.4f} seconds")
         (z, y, x) = self.get_coordinates()
         # Generate a fake spectrum for demonstration purposes
         curves = []

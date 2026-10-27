@@ -214,6 +214,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         It will manually call the correct function to update everything.
         Some caching mechanism at the function levels will help to not recompute everything unnecessarily.
         """
+        logger.debug("_read_bls_data")
         self.loading = True
 
         with param.parameterized.batch_call_watchers(self):
@@ -229,6 +230,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
     @catch_and_notify(prefix="<b>Update results: </b>")
     def _update_result_list(self):
+        logger.debug("_update_result_list")
         if self.bls_data is None:
             self.result_index_dropdown.disabled = True
             return
@@ -249,6 +251,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     @only_on_change("bls_data", "result_index")
     @catch_and_notify(prefix="<b>Update results: </b>")
     def _update_result_variable(self):
+        logger.debug("_update_result_variable")
         if self.bls_data is None or self.result_index is None:
             return
 
@@ -294,6 +297,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     )
     @catch_and_notify(prefix="<b>Update image: </b>")
     def _update_img_data(self):
+        logger.debug("_update_img_data")
         if self.bls_analysis is None:
             self.img_data = np.zeros((512, 512))
             return
@@ -334,11 +338,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
                 bls.Metadata.Item(1, "px"),
                 bls.Metadata.Item(1, "px"),
             )
-        logger.debug(img_data.shape)
         (z, y, x) = img_data.shape
-        logger.debug(self.z_px)
-        logger.debug(self.y_px)
-        logger.debug(self.x_px)
 
         # We want a Xarray backed dataset
         xr_data = xr.DataArray(
@@ -383,6 +383,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         # new one - but that safety comes from careful ordering, not from the
         # code guaranteeing it. Making it self-terminating by construction is
         # more robust;
+        logger.debug(f"_update_axis_1")
         if self._axis_reconciling:
             return
         self._axis_reconciling = True
@@ -400,6 +401,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     @param.depends("img_axis_2", watch=True)
     def _update_axis_2(self):
         # See `_update_axis_1` above - same guard, same reason.
+        logger.debug(f"_update_axis_2")
         if self._axis_reconciling:
             return
         self._axis_reconciling = True
@@ -417,6 +419,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
     @param.depends("img_axis_3", "_update_img_data", watch=True)
     def _update_axis_3(self):
+        logger.debug(f"_update_axis_3")
         self.slices = self.img_dataset.data.coords[
             self.img_axis_3
         ].values.tolist()  # This works because it's an Xarray backed dataset
@@ -431,7 +434,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             self.img_axis_3_slice_widget.disabled = False
         else:
             self.img_axis_3_slice_widget.disabled = True
-        logger.info(
+        logger.debug(
             f"Updating img_axis_3_slice with {self.slices} - value {self.img_axis_3_slice}"
         )
 
@@ -486,6 +489,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             "img_axis_3_slice",
         )
     def _reset_mask_on_replot(self):
+        logger.debug(f"_reset_mask_on_replot")
         self._reset_mask(True)
 
     @(
@@ -648,6 +652,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         The mask should be a boolean array of the same shape as the image.
         True pixels are highlighted (e.g., red), False pixels are transparent.
         """
+        logger.debug(f"_plot_mask")
         if self.mask is None:
             # Nothing to overlay
             return hv.Image(np.zeros((1, 1)))  # dummy invisible image
@@ -670,6 +675,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
     @pn.depends("_plot_data", "_plot_mask")
     def _plot_masked_data(self):
+        logger.debug(f"_plot_masked_data")
         data = self._plot_data()
         mask = self._plot_mask()
         return data * mask
@@ -749,6 +755,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     def _compute_histogram(self):
         # Seperate function, so we don't recompute the histogram
         # unless necessary
+        logger.debug(f"_compute_histogram")
         frame = self._get_datasetslice()
         self.histogram = frame.hist(adjoin=False)
 
@@ -765,6 +772,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         "img_axis_3_slice",
     )
     def _update_colorrange(self):
+        logger.debug(f"_update_colorrange")
         frame = self._get_datasetslice()
         self.param.colorrange.bounds = frame.range(frame.vdims[0])
         self.colorrange = frame.range(frame.vdims[0])
@@ -806,6 +814,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         # dependency list below, so dragging the slider never causes
         # `pn.pane.HoloViews` to treat the histogram pane as returning a new
         # object.
+        logger.debug(f"_push_colorrange_to_vlines")
         self._vline_pipe.send(self.colorrange)
 
     @param.depends("_compute_histogram")
@@ -826,7 +835,6 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         if self.bls_data is None or self.bls_analysis is None:
             logger.error("No data loaded, cannot download tiff")
             return
-        logger.info("TODO - download as tiff")
 
         # temp fix: filename retuns the full path of the file
         bls_file_name = os.path.basename(self.bls_file.filename)

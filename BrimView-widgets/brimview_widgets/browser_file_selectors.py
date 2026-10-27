@@ -121,7 +121,7 @@ class CustomJSFileInput(WidgetBase):
         self.apply_jscallback()
 
     def apply_jscallback(self):
-        logger.info("Updating callback of the panel button")
+        logger.debug("Updating callback of the panel button")
         def js_code_onclick(button_id):
             return f"""
              let file_input = Bokeh.index.query_one((view) => view.model.id == html_file_input.id).el.shadowRoot.getElementById("{button_id}");
@@ -176,7 +176,7 @@ class CustomJSFileInput(WidgetBase):
     @catch_and_notify(prefix="<b>[CustomJSFileinput._process_js_msg]:</b>")
     def _process_js_msg(self):
         if self.value == "":
-            logger.info("No message to process")
+            logger.debug("No message to process")
             return
         
         msg = self.value
@@ -187,7 +187,7 @@ class CustomJSFileInput(WidgetBase):
             logger.debug("file loaded !")
             # the file was successfully loaded!
             if "bls_file" not in globals():
-                logger.debug(globals().keys())
+                logger.debug(f"keys in globals: {globals().keys()}")
                 raise ValueError("Something went wrong with loading the file!")
             bls_file = globals()["bls_file"]
             if self.update_function is not None:

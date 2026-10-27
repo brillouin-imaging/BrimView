@@ -79,7 +79,7 @@ else if (v === "unknown field" || v === "likely typo") {
     @param.depends("value", watch=True)
     @catch_and_notify(prefix="<b>Update metadata: </b>")
     def _update_tabulator(self):
-        logger.info("Updating metadata tabulator")
+        logger.debug("_update_tabulator")
         if self.value is None:
             self.title.object = "## Metadata of the file \n Please load a file"
             self.tabulator_visibility = False

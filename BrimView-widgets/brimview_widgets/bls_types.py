@@ -17,7 +17,7 @@ class bls_param(param.Parameterized):
         self.analysis: bls.Data.AnalysisResults
     
     def reset(self):
-        logger.info("Resetting bls_input")
+        logger.debug("Resetting bls_input")
         with param.parameterized.batch_call_watchers(self):
             self.file = None
             self.data = None
