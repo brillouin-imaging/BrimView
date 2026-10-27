@@ -19,7 +19,11 @@ self.initZarrFile = init_file;
  * Handles `{type: "load_file", target, files}` posted by the file picker on the main thread
  * (brimview_widgets/browser_file_picker.js). build_webapp.py routes that message type here.
  */
-self.handleLoadFile = async ({ target, files }) => {
+self.handleLoadFile = async ({ target, files, paths }) => {
+    // Dropped folders: File objects lose their relative path when cloned, so it is sent separately.
+    if (paths) {
+        files.forEach((file, i) => Object.defineProperty(file, "relativePath", { value: paths[i] }));
+    }
     const locals = pyodide.toPy({ target, files });
     try {
         // runPythonAsync provides the promising Python entry point needed by run_sync (JSPI).

@@ -31,11 +31,6 @@ from panel.custom import Child, JSComponent
 from .utils import catch_and_notify
 from .widgets import CustomPMuiCard, PathSelectorMixin
 
-_DOC_LINK = (
-    'See <a href="https://brillouin-imaging.github.io/brimfile/brimfile.html#store-types" '
-    'target="_blank" rel="noopener noreferrer">documentation</a> for supported formats.'
-)
-
 # The worker only knows a loader by the id it was given in `target`. Weak, so a loader that is
 # garbage-collected simply disappears from the registry.
 _loaders: "weakref.WeakValueDictionary[str, CustomJSFileInput]" = weakref.WeakValueDictionary()
@@ -102,11 +97,11 @@ class CustomJSFileInput(PathSelectorMixin, pn.viewable.Viewer):
         _loaders[self._uid] = self
         self._picker = BrowserFilePicker(
             uid=self._uid,
-            zip_button=pn.ui.Button(label="Load a .zip file", color="primary", sizing_mode="stretch_width"),
-            folder_button=pn.ui.Button(label="Load a .zarr folder", color="primary", sizing_mode="stretch_width"),
+            zip_button=pn.ui.Button(label=".zip file", color="primary", sizing_mode="stretch_width"),
+            folder_button=pn.ui.Button(label=".zarr folder", color="primary", sizing_mode="stretch_width"),
             sizing_mode="stretch_width",
         )
-        self._card = CustomPMuiCard( pn.ui.Column(pn.ui.HTML(_DOC_LINK), self._picker), 
+        self._card = CustomPMuiCard(self._picker, 
                                     collapsed=True,
                                     collapsible=True,
                                     sizing_mode="stretch_width",
