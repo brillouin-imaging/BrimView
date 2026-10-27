@@ -33,4 +33,4 @@ class S3FileSelector(PathSelectorMixin, pn.viewable.Viewer):
             logger.info("No file selected.")
 
     def __panel__(self):
-        return pn.ui.FlexBox(self.s3_link, self.s3_load_button)
+        return pn.ui.Column(self.s3_link, self.s3_load_button)

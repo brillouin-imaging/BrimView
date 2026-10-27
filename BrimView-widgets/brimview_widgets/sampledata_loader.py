@@ -36,7 +36,7 @@ class SampledataLoader(PathSelectorMixin, pn.viewable.Viewer):
 
     def __panel__(self):
         return CustomPMuiCard(
-            pn.ui.FlexBox(self.dataset_select, self.sampledata_load_button),
+            pn.ui.Column(self.dataset_select, self.sampledata_load_button),
             title="Sample data",
             collapsed=True,
             collapsible=True,

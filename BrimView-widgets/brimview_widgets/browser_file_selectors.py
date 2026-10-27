@@ -218,7 +218,7 @@ class CustomJSFileInput(WidgetBase):
         # (and the buttons it wraps) hasn't been switched to `pmui.Card`/`pmui.Button` yet.
         return pn.ui.Card(
             pn.ui.HTML('See <a href="https://brillouin-imaging.github.io/brimfile/brimfile.html#store-types" target="_blank" rel="noopener noreferrer">documentation</a> for supported formats.'), 
-            pn.ui.FlexBox(self._html_button, self._panel_button_zip, self._panel_button_zarr),
+            pn.ui.Column(self._html_button, self._panel_button_zip, self._panel_button_zarr),
             title="Local data",
             margin=5,
         )

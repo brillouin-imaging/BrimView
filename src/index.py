@@ -63,9 +63,7 @@ def parse_query_params(file_widget: "brimview_widgets.TinkerFileSelector"):
 # The things we need
 # See: https://github.com/holoviz/panel/issues/7913#issuecomment-2880177999
 # See: https://panel.holoviz.org/explanation/styling/templates_overview.html
-sidebar = pn.ui.FlexBox()
-# TODO: convert to pmui.Tabs.
-# currently the metadata Tabulator doesn't render correctly if using pmui.Tabs
+sidebar = pn.ui.Column(sizing_mode="stretch_width")
 main_tabs = pn.ui.Tabs(
     sizing_mode="stretch_width",
 )
@@ -247,9 +245,9 @@ def build_ui():
     spectrum_visualizer = brimview_widgets.BlsSpectrumVisualizer(DataVisualizer)
     statistics_widget = brimview_widgets.BlsStatistics(DataVisualizer)
     brim_visualizer = pn.ui.Row(
-        pn.ui.FlexBox(DataVisualizer, margin=10),
-        pn.ui.FlexBox(spectrum_visualizer, rawdata_visualizer, statistics_widget, 
-                          margin=10, gap="10px"),
+        pn.ui.FlexBox(DataVisualizer),
+        pn.ui.Column(spectrum_visualizer, rawdata_visualizer, statistics_widget,
+                  sizing_mode="stretch_width"),
         sizing_mode="stretch_width",
     )
     main_tabs.append((".brim Visualizer", brim_visualizer))

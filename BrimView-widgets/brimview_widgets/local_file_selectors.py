@@ -134,8 +134,11 @@ class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
     def __panel__(self):
         if not _running_from_docker:
             local_data_widget = CustomPMuiCard(
-                    self.filedialog_button,
-                    self.dragNdrop_button,
+                    pn.ui.Column(
+                        self.filedialog_button,
+                        self.dragNdrop_button,
+                        sizing_mode="stretch_width",
+                    ),
                     title="Local data",
                     sizing_mode="stretch_width",
                     margin=5
@@ -150,7 +153,7 @@ class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
                     collapsed = True
                 )
 
-        return pn.ui.FlexBox(
+        return pn.ui.Column(
             local_data_widget, 
             CustomPMuiCard(
                 self.s3FileSelector,
