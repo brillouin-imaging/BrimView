@@ -24,7 +24,7 @@ RUN if [ "$ENABLE_PROMETHEUS" = "true" ] || [ "$ENABLE_PROMETHEUS" = "1" ]; then
 # If you disable Prometheus for an image, build with METRICS_PORT=0.
 EXPOSE $METRICS_PORT
 
-# ENV ADMIN_ENDPOINT exists in the base image
+# ENV ADMIN_PASSWORD exists in the base image
 
 # Start the Panel app
 # see https://discourse.bokeh.org/t/understanding-the-allow-websocket-origin-option/10636 for allow-websocket-origin
@@ -33,7 +33,7 @@ CMD ["/bin/sh", "-c", "panel serve index.py --index=index \
     --address 0.0.0.0 --port 5006 --allow-websocket-origin 'brimview.embl.org' \
     --use-xheaders \
     --setup request_logger_setup.py \
-    --admin --admin-endpoint \"$ADMIN_ENDPOINT\" --admin-log-level debug \
+    --admin --admin-password=$ADMIN_PASSWORD --admin-log-level debug \
     --global-loading-spinner \
     --num-procs 1 --num-threads 0 \
     --args from-docker"]
