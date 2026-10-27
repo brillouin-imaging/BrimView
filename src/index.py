@@ -192,9 +192,7 @@ def build_ui():
             )
         )
 
-        file_widget = pn.ui.FlexBox(
-            pn.ui.Card(s3_file_selector, title="S3 online data", margin=5),
-        )
+        file_widget = s3_file_selector
 
         # Creating the treatment widget
         TreamentWidget = TreamentWidget_webapp

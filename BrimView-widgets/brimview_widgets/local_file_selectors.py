@@ -154,12 +154,6 @@ class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
                 )
 
         return pn.ui.Column(
-            local_data_widget, 
-            CustomPMuiCard(
-                self.s3FileSelector,
-                title="S3 online data",
-                margin=5,
-                sizing_mode="stretch_width",
-                collapsed = True
-            )
+            local_data_widget,
+            self.s3FileSelector
         )

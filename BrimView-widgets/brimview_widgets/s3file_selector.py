@@ -2,7 +2,7 @@ import panel as pn
 
 from .utils import catch_and_notify
 from .logging import logger
-from .widgets import PathSelectorMixin
+from .widgets import CustomPMuiCard, PathSelectorMixin
 
 class S3FileSelector(PathSelectorMixin, pn.viewable.Viewer):
 
@@ -33,4 +33,11 @@ class S3FileSelector(PathSelectorMixin, pn.viewable.Viewer):
             logger.info("No file selected.")
 
     def __panel__(self):
-        return pn.ui.Column(self.s3_link, self.s3_load_button)
+        return CustomPMuiCard(
+            pn.ui.Column(self.s3_link, self.s3_load_button),
+            collapsed=True,
+            collapsible=True,
+            sizing_mode="stretch_width",
+            title="S3 online data", 
+            margin=5
+            )
