@@ -29,7 +29,7 @@ class BlsMetadata(WidgetBase, PyComponent):
     )
 
     def __init__(self, **params):
-        self.tabulator = pn.widgets.Tabulator(
+        self.tabulator = pn.ui.Tabulator(
             show_index=False,
             disabled=True,
             groupby=["Group"],
@@ -68,7 +68,7 @@ else if (v === "unknown field" || v === "likely typo") {
                 )
             },
         )
-        self.title = pn.pane.Markdown("## Metadata of the file \n Please load a file")
+        self.title = pn.ui.Markdown("## Metadata of the file \n Please load a file")
         super().__init__(**params)
 
         logger.info("BlsMetadata initialized")
@@ -79,7 +79,7 @@ else if (v === "unknown field" || v === "likely typo") {
     @param.depends("value", watch=True)
     @catch_and_notify(prefix="<b>Update metadata: </b>")
     def _update_tabulator(self):
-        logger.info("Updating metadata tabulator")
+        logger.debug("_update_tabulator")
         if self.value is None:
             self.title.object = "## Metadata of the file \n Please load a file"
             self.tabulator_visibility = False
@@ -130,4 +130,4 @@ else if (v === "unknown field" || v === "likely typo") {
         self.tabulator.visible = value
 
     def __panel__(self):
-        return pn.Column(self.title, self.tabulator)
+        return pn.ui.Column(self.title, self.tabulator)

@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 import holoviews as hv
 import param
 import asyncio
@@ -39,7 +38,7 @@ class BrillouinPeakEstimate(pn.viewable.Viewer):
         # migrating this means replacing it with explicit `pmui.*.from_param(...)` widgets
         # per field (see migrating-to-material-ui.md). Deferred along with the rest of this
         # tab (see TODOs in `BrillouinPeaks`/`BLSTreatOptions` below).
-        return pn.Param(self.param, show_name=False, width=300)
+        return pn.ui.Param(self.param, show_name=False, width=300)
 
 
 class BrillouinPeaks(pn.viewable.Viewer):
@@ -48,7 +47,7 @@ class BrillouinPeaks(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
         self._peak_watchers = {}  # peak -> list of watchers
-        self.tabs = pn.Tabs(closable=False)
+        self.tabs = pn.ui.Tabs(closable=False)
         self.add_peak(None, position=-6.0, type_pnt="Anti-Stokes", bound_shift=(-8, -4))
         self.add_peak(None, position=6.0, type_pnt="Stokes", bound_shift=(4, 8))
 
@@ -65,7 +64,6 @@ class BrillouinPeaks(pn.viewable.Viewer):
         peak = BrillouinPeakEstimate(name=f"Peak {n_peaks + 1}", **params)
         self.peaks.append(peak)
         self._watch_peak_params(peak)
-        logger.debug(self.peaks)
         self.tabs.append((peak.name, peak))
         self._manual_param_trigger(None)  # Trigger the peaks parameter change
 
@@ -90,7 +88,7 @@ class BrillouinPeaks(pn.viewable.Viewer):
                 self.tabs.active = len(self.tabs.objects) - 1
             self._manual_param_trigger(None)  # Trigger the peaks parameter change
         else:
-            logger.info("Cannot remove the last peak.")
+            logger.warning("Cannot remove the last peak.")
 
     def _unwatch_peak_params(self, peak):
         watchers = self._peak_watchers.pop(peak, [])
@@ -114,15 +112,15 @@ class BrillouinPeaks(pn.viewable.Viewer):
         # below) hasn't been migrated to panel-material-ui yet. Deferred for a separate pass -
         # only the raw `pn.Card` here was swapped to `pmui.Card` for now, since that's a
         # drop-in change with no risk to the fitting logic.
-        add_peak = pn.widgets.Button(
-            name="Add Brillouin Peak",
+        add_peak = pn.ui.Button(
+            label="Add Brillouin Peak",
             on_click=self.add_peak,
         )
-        remove_peak = pn.widgets.Button(
-            name="Remove Brillouin Peak",
+        remove_peak = pn.ui.Button(
+            label="Remove Brillouin Peak",
             on_click=self.remove_peak,
         )
-        return pmui.Card(
+        return pn.ui.Card(
             self.tabs,
             add_peak,
             remove_peak,
@@ -146,7 +144,7 @@ class BLSTreatOptions(pn.viewable.Viewer):
     def __panel__(self):
         # TODO(pmui-migration): Select/NumberInput below are still `pn.widgets.*` — see the
         # TODO in `BrillouinPeaks.__panel__` above, same deferred pass.
-        return pmui.Card(
+        return pn.ui.Card(
             pn.widgets.Select.from_param(self.param.model_fit),
             pn.widgets.NumberInput.from_param(self.param.threshold_noise),
             title="General fitting options",
@@ -182,7 +180,7 @@ class BlsDoTreatment(pn.viewable.Viewer):
         self.bls_options = BLSTreatOptions()
 
         # This needs to be called before some pn.depends(init=True) functions
-        self.plot_pane = pn.pane.HoloViews()
+        self.plot_pane = pn.ui.HoloViews()
 
         self._bls_treatment_lock = asyncio.Lock()
         super().__init__(**params)
@@ -198,7 +196,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
         """
         Handle button click event to process data.
         """
-        logger.debug("Button clicked!")
         pn.state.execute(self.process_and_save_treatment)
 
     @catch_and_notify(prefix="<b>_process_and_save_treatment</b> - ")
@@ -265,7 +262,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
                 )
 
             # Defining the model for fitting the peaks
-            logger.debug(self.bls_options.model_fit)
             self.bls_treat.define_model(
                 model=self.bls_options.model_fit, elastic_correction=False
             )  # You can also try with "Lorentzian" model and add elastic corrections by setting the parameter to True for both lineshapes.
@@ -297,10 +293,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
             tf = time.time() - t0
             self.progress_widget.finish()
 
-            logger.debug(f"shift: {self.bls_treat.shift.shape}")
-            logger.debug(f"amplitude: {self.bls_treat.amplitude.shape}")
-            logger.debug(f"linewidth: {self.bls_treat.linewidth}")
-
             # Combining the two fitted peaks together here weighing the result on the standard deviation of the shift
             # self.bls_treat.combine_results_FSR(
             #    FSR=15,
@@ -310,8 +302,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
             # )
 
             logger.info(f"Time for fitting all spectra: {tf:.2f} s")
-
-            logger.debug(self.bls_treat.shift)
             logger.info(
                 f"Average time for a single spectrum: {1e3*tf/np.prod(len(self.bls_treat.shift)):.2f} ms"
             )
@@ -320,9 +310,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
     async def _save_bls_treatment(self):
         if self.bls_treat is None:
             raise ValueError("No BLS treatment available.")
-        logger.debug(f"shift: {self.bls_treat.shift.shape}")
-        logger.debug(f"amplitude: {self.bls_treat.amplitude.shape}")
-        logger.debug(f"linewidth: {self.bls_treat.linewidth.shape}")
 
         fitted_peaks = []
         model = self.bls_options.model_fit
@@ -420,7 +407,6 @@ class BlsDoTreatment(pn.viewable.Viewer):
             (PSD, frequency, PSD_units, frequency_units) = self.bls_data.get_PSD_as_spatial_map(broadcast_frequency=True)
             self.mean_spectra_n_samples.end = np.prod(PSD.shape[:-1])
             self.mean_spectra_n_samples.start = 1
-            logger.debug(PSD.shape)
 
     @catch_and_notify(prefix="<b>Compute mean spectra: </b>")
     def compute_mean_spectra(self, event):
@@ -497,7 +483,7 @@ class BlsDoTreatment(pn.viewable.Viewer):
             PSD_units,
         ) = self.mean_spectra
         if common_freq is None and mean_spectrum is None:
-            logger.error("Curve is None !")
+            logger.error("Curve is None!")
             plot = peak_spans
 
         else:
@@ -520,9 +506,9 @@ class BlsDoTreatment(pn.viewable.Viewer):
         # of the "Providing a width-responsive sizing_mode... and a fixed width" console
         # warning) - dropping the redundant `sizing_mode` keeps the originally-intended fixed
         # 200px width. (Full pmui.Button migration deferred - see TODOs above.)
-        self.btn_process_data = pn.widgets.Button(
-            name="Process Data",
-            button_type="primary",
+        self.btn_process_data = pn.ui.Button(
+            label="Process Data",
+            color="primary",
             width=200,
             on_click=self.button_click,
             disabled=True,
@@ -531,20 +517,20 @@ class BlsDoTreatment(pn.viewable.Viewer):
         # TODO(pmui-migration): IntInput/Button below (and `self.progress_widget`, from
         # `progress_widget.py`) are still plain `pn.widgets.*` - deferred along with the rest
         # of this "(Re-)analyze spectra" tab, see TODOs above.
-        self.mean_spectra_n_samples = pn.widgets.IntInput(
-            name="Number of spectra to use", value=50, start=1, end=1000, step=50
+        self.mean_spectra_n_samples = pn.ui.IntInput(
+            label="Number of spectra to use", value=50, start=1, end=1000, step=50
         )
-        self.mean_spectra_button = pn.widgets.Button(
-            name="Compute mean spectra",
-            button_type="primary",
+        self.mean_spectra_button = pn.ui.Button(
+            label="Compute mean spectra",
+            color="primary",
             on_click=self.compute_mean_spectra,
             disabled=True,
         )
 
-        return pn.FlexBox(
-            pn.FlexBox(
+        return pn.ui.FlexBox(
+            pn.ui.FlexBox(
                 self.plot_pane,
-                pn.Column(self.mean_spectra_n_samples, self.mean_spectra_button),
+                pn.ui.Column(self.mean_spectra_n_samples, self.mean_spectra_button),
                 self.peaks_for_treament,
                 self.bls_options,
             ),

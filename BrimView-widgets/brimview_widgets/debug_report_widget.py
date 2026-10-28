@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 
 import brimfile as bls
 import HDF5_BLS_treat.treat as bls_processing
@@ -54,8 +53,8 @@ class DebugReport(pn.viewable.Viewer):
 
     def __init__(self, **params):
         super().__init__(**params)
-        self._debug_markdown = pmui.Typography(variant='body1')
-        self._debug_report = pmui.Dialog(
+        self._debug_markdown = pn.ui.Typography(variant='body1')
+        self._debug_report = pn.ui.Dialog(
             self._debug_markdown,
             title="Debug report",
             width_option="md",
@@ -70,7 +69,7 @@ class DebugReport(pn.viewable.Viewer):
             close_on_click=True,
             show_close_button=True,
         )
-        self._debug_button = pmui.Button(
+        self._debug_button = pn.ui.Button(
             label="Display debug report",
             icon="bug_report",
             variant="outlined",
@@ -116,4 +115,4 @@ class DebugReport(pn.viewable.Viewer):
 
         
     def __panel__(self):
-        return pn.FlexBox(self._debug_button, self._debug_report, margin=5, align='center')
+        return pn.ui.FlexBox(self._debug_button, self._debug_report, margin=5, align='center')

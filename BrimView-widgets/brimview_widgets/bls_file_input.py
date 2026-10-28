@@ -57,7 +57,7 @@ class BlsFileInput(WidgetBase, PyComponent):
                 sizing_mode="stretch_width",
             ) # Enabling throttling to avoid too many updates while sliding
 
-        self.data_group_index_widget_with_tooltip = pmui.Tooltip(
+        self.data_group_index_widget_with_tooltip = pn.ui.Tooltip(
             self.data_group_index_widget,
             title="Change which data group is displayed",
             placement="top",
@@ -154,15 +154,12 @@ class BlsFileInput(WidgetBase, PyComponent):
         if self.local_file is None:
             return
 
-        # logger.debug(self.local_file)
         for key, value in self.local_file.items():
-            logger.debug(key)
             filename = key
             file_bytes = value
         # Create the full path in the system's temp directory
         tmp_dir = tempfile.gettempdir()
         file_path = os.path.join(tmp_dir, filename)
-        logger.debug(file_path)
         # Save the uploaded file content to the temporary file
         with open(file_path, "wb") as f:
             f.write(file_bytes)
@@ -217,7 +214,6 @@ class BlsFileInput(WidgetBase, PyComponent):
             self.data_group = None
         else:
             logger.info("Parsing bls_file")
-            logger.info(self.bls_file.list_data_groups())
             self.datagroup_selector_widget.disabled = False
             self.data_group_index_widget.disabled = False
 
@@ -251,9 +247,10 @@ class BlsFileInput(WidgetBase, PyComponent):
     @param.depends("data", watch=True)
     @catch_and_notify(prefix="<b>Update parameters: </b>")
     def _update_parameters(self):
+        logger.debug("_update_parameters")
         if self.data is not None:
             (parameters, names) = self.data.get_parameters()
-            logger.debug(parameters)
+            logger.debug(f"Parameters: {parameters}")
             self.param.data_parameter.objects = {"Placeholder": "Parameter 1"}
             # TODO: make this cleaner once the get_parmeters is working
             if parameters is not None:
@@ -305,7 +302,7 @@ class BlsFileInput(WidgetBase, PyComponent):
             )
 
         self._main_card = CustomPMuiCard(
-                pmui.Column(
+                pn.ui.Column(
                     rw_toggle,
                     self.datagroup_selector_widget,
                     self.data_group_index_widget_with_tooltip,

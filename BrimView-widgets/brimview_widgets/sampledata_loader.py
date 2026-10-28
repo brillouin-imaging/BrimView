@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 
 from .utils import catch_and_notify
 from .logging import logger
@@ -17,11 +16,11 @@ class SampledataLoader(PathSelectorMixin, pn.viewable.Viewer):
         super().__init__(**params)
 
         # Sample dataset picker
-        self.sampledata_load_button = pmui.Button(
+        self.sampledata_load_button = pn.ui.Button(
             label="Load sample", color="primary", sizing_mode="stretch_width"
         )
         self.sampledata_load_button.on_click(self._load_sample_data)
-        self.dataset_select = pmui.Select(
+        self.dataset_select = pn.ui.Select(
             label='Dataset',
             options=list(self._sampledata.keys()),
             sizing_mode="stretch_width")
@@ -37,7 +36,7 @@ class SampledataLoader(PathSelectorMixin, pn.viewable.Viewer):
 
     def __panel__(self):
         return CustomPMuiCard(
-            pmui.FlexBox(self.dataset_select, self.sampledata_load_button),
+            pn.ui.Column(self.dataset_select, self.sampledata_load_button),
             title="Sample data",
             collapsed=True,
             collapsible=True,

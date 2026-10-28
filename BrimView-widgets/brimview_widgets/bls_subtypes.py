@@ -61,7 +61,7 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         )
         self.dataset_zyx_coord: param.NumericTuple = result_plot.param.dataset_zyx_click
 
-        self._enable_switch = pmui.Switch(label='Enabled', value=False)
+        self._enable_switch = pn.ui.Switch(label='Enabled', value=False)
 
         self._enabled_param = self._enable_switch.param.value
 
@@ -173,7 +173,7 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         #       enabling the tool to hover above a pixel, and display the raw value
         card = CustomPMuiCard(
             self._enable_switch,
-            pn.pane.HoloViews(self._plot_data, sizing_mode="stretch_width"),
+            pn.ui.HoloViews(self._plot_data, sizing_mode="stretch_width"),
             title=self.name,
             spinner=self.spinner,
             tooltip=self.tooltip,

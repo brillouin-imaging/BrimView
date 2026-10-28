@@ -11,13 +11,13 @@ pn.extension()
 # `pmui.LinearProgress` when that pass happens.
 class ProgressWidget(pn.Column):
     def __init__(self, step_interval=1, min_interval=0.1, **kwargs):
-        self.label = pn.pane.Markdown("### Ready")
+        self.label = pn.ui.Markdown("### Ready")
 
-        self.progress = pn.widgets.Progress(
-            value=0, max=100, width=400, name="Progress"
+        self.progress = pn.ui.Progress(
+            value=0, max=100, width=400, label="Progress"
         )
-        self.status_text = pn.pane.Str("0 / 0")
-        self.time_info = pn.pane.Str("Start: -- | Elapsed: -- | ETA: --")
+        self.status_text = pn.ui.Str("0 / 0")
+        self.time_info = pn.ui.Str("Start: -- | Elapsed: -- | ETA: --")
 
         self._start_time = None
         self._last_update_time = 0
@@ -27,7 +27,7 @@ class ProgressWidget(pn.Column):
 
         super().__init__(
             self.label,
-            pn.Row(self.progress, self.status_text),
+            pn.ui.Row(self.progress, self.status_text),
             self.time_info,
             **kwargs
         )

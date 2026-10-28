@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 
 from .environment import is_running_from_docker
 _running_from_docker = is_running_from_docker()
@@ -78,12 +77,12 @@ class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
         super().__init__(**params)
 
         # Filedialog button
-        self.filedialog_button = pmui.Button(
+        self.filedialog_button = pn.ui.Button(
             label="Click me to select a file", color="primary", sizing_mode="stretch_width",
         )
         self.filedialog_button.on_click(self._select_file_dialog)
 
-        self.dragNdrop_button = pmui.Button(
+        self.dragNdrop_button = pn.ui.Button(
             label="Click me to drag and drop a file", color="primary", sizing_mode="stretch_width"
         )
         self.dragNdrop_button.on_click(self._drag_and_drop_dialog)
@@ -135,8 +134,11 @@ class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
     def __panel__(self):
         if not _running_from_docker:
             local_data_widget = CustomPMuiCard(
-                    self.filedialog_button,
-                    self.dragNdrop_button,
+                    pn.ui.Column(
+                        self.filedialog_button,
+                        self.dragNdrop_button,
+                        sizing_mode="stretch_width",
+                    ),
                     title="Local data",
                     sizing_mode="stretch_width",
                     margin=5
@@ -144,20 +146,14 @@ class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
                 )
         else:
             local_data_widget = CustomPMuiCard(
-                    pn.pane.HTML("<a href='https://biobrillouin.org/brimview-local/'>Load in-browser version</a>"),
+                    pn.ui.HTML("<a href='https://biobrillouin.org/brimview-local/'>Load in-browser version</a>"),
                     title="Local data",
                     margin=5,
                     sizing_mode="stretch_width",
                     collapsed = True
                 )
 
-        return pmui.FlexBox(
-            local_data_widget, 
-            CustomPMuiCard(
-                self.s3FileSelector,
-                title="S3 online data",
-                margin=5,
-                sizing_mode="stretch_width",
-                collapsed = True
-            )
+        return pn.ui.Column(
+            local_data_widget,
+            self.s3FileSelector
         )

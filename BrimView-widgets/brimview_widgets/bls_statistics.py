@@ -87,13 +87,13 @@ class BlsStatistics(WidgetBase, PyComponent):
         self.img_axis_3_slice = result_plot.param.img_axis_3_slice
 
         # === Some panel setup ===
-        self.spectrum_plot_widget = pn.pane.HoloViews(
+        self.spectrum_plot_widget = pn.ui.HoloViews(
             None,
             sizing_mode="stretch_width",
         )
         self.statistic_tabulator_widget = self.statistic_tabulator()
 
-        self.tqdm = pn.widgets.Tqdm(visible=False)
+        self.tqdm = pn.ui.Tqdm(visible=False)
 
         # === Typing hints ===
         self.bls_data: bls_param
@@ -153,7 +153,7 @@ class BlsStatistics(WidgetBase, PyComponent):
         Should only be used for debugging due to potential performance issues.
         """
         if not self.selected_points:
-            return pn.pane.Markdown("No points selected.")
+            return pn.ui.Markdown("No points selected.")
         else:
             df = pd.DataFrame(self.selected_points, columns=["z", "y", "x"])
             return pn.widgets.DataFrame(df, autosize_mode="fit_columns", height=200)
@@ -326,7 +326,7 @@ class BlsStatistics(WidgetBase, PyComponent):
         )
 
     def statistic_tabulator(self) -> pn.widgets.Tabulator:
-        tab = pn.widgets.Tabulator(
+        tab = pn.ui.Tabulator(
             self.placeholder_dataframe(),
             show_index=False,
             disabled=True,

@@ -32,7 +32,7 @@ jobs:
             VERSION_TAG=latest
           fi
           LOCAL_BASE_IMAGE=brimview-base:ci
-          docker build --build-arg ADMIN_ENDPOINT=${{secrets.ADMIN_PANEL_ENTRYPOINT}} --pull \
+          docker build --build-arg ADMIN_PASSWORD=${{secrets.ADMIN_PANEL_PASSWORD}} --pull \
             -t $IMAGE_REPO:latest \
             -t $IMAGE_REPO:$VERSION_TAG \
             -t $LOCAL_BASE_IMAGE \
@@ -47,7 +47,7 @@ jobs:
             VERSION_TAG=latest
           fi
           LOCAL_BASE_IMAGE=brimview-base:ci
-          docker build --build-arg BASE_IMAGE=$LOCAL_BASE_IMAGE --build-arg ADMIN_ENDPOINT=${{secrets.ADMIN_PANEL_ENTRYPOINT}} \
+          docker build --build-arg BASE_IMAGE=$LOCAL_BASE_IMAGE --build-arg ADMIN_PASSWORD=${{secrets.ADMIN_PANEL_PASSWORD}} \
             -t $ANALYTICS_IMAGE_REPO:latest \
             -t $ANALYTICS_IMAGE_REPO:$VERSION_TAG \
             -f Dockerfile.analytics .
