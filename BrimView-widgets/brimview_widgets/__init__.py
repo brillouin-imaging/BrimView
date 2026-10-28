@@ -1,4 +1,4 @@
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 
 from .bls_file_input import BlsFileInput
 from .bls_data_visualizer import BlsDataVisualizer
