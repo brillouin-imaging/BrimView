@@ -84,7 +84,9 @@ export function render({ model, el }) {
     const entries = Array.from(e.dataTransfer.items)
       .map((item) => item.webkitGetAsEntry?.())
       .filter(Boolean);
-    collectDropped(entries).then(({ files, paths }) => post(files, paths));
+    collectDropped(entries)
+      .then(({ files, paths }) => post(files, paths))
+      .catch((error) => model.send_msg({ error: String(error) }));
   });
 
   // Errors that happen in the worker *before* Python takes over (Python-side errors are notified from

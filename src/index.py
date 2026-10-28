@@ -26,7 +26,7 @@ pn.extension(raw_css=[
 .bk-tabs .bk-tab-pane[hidden] {
     pointer-events: none !important;
 }
-// fix new line in alert messages not being displayed correctly
+/* fix new line in alert messages not being displayed correctly */
 .bk-notification,
 .MuiAlert-message {
     white-space: pre-line !important;
