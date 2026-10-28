@@ -23,6 +23,54 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build pyodide webapp
+        run: |
+          pip install build
+          pip install "./BrimView-widgets[processing, localfile, remote-store, statistics]"
+          python src/build_webapp.py
+
+          # Build the brimfile wheel directly into the pyodide folder
+          # Full clone with tags: the build backend derives the version from them
+          git clone https://github.com/brillouin-imaging/brimfile.git "${RUNNER_TEMP}/brimfile"
+          git -C "${RUNNER_TEMP}/brimfile" fetch --tags
+          python -m build --wheel --outdir "$GITHUB_WORKSPACE/pyodide" "${RUNNER_TEMP}/brimfile"
+          BRIMFILE_WHEEL=$(basename "$(ls "$GITHUB_WORKSPACE"/pyodide/brimfile-*.whl | head -n 1)")
+          echo "brimfile wheel: $BRIMFILE_WHEEL"
+
+          # Same logic as replace_library_with_url() in src/build_webapp.py
+          BRIMFILE_WHEEL="$BRIMFILE_WHEEL" python - <<'EOF'
+          import os, re, pathlib
+
+          def replace_library_with_url(js_code, lib_name, custom_url):
+              pattern = re.compile(r"(\s*await\s+micropip\.install\s*\(\[)(.*?)(\]\))", re.MULTILINE)
+              match = pattern.search(js_code)
+              if not match:
+                  raise ValueError("'await micropip install' not found in the JS file.")
+              items = match.group(2).split(',')
+              replaced = False
+              for i, item in enumerate(items):
+                  item = item.strip().strip('"\'')
+                  # also match specs with extras/version specifiers (e.g. brimfile[export-tiff]>=1.7)
+                  if re.split(r"[=<>!~\[ ;]", item, maxsplit=1)[0] == lib_name:
+                      items[i] = custom_url
+                      replaced = True
+                      break
+              if not replaced:
+                  raise ValueError(f"Library '{lib_name}' not found in micropip install.")
+              new_content = f"{match.group(1)}{', '.join(items)}{match.group(3)}"
+              return js_code[:match.start()] + new_content + js_code[match.end():]
+
+          worker = pathlib.Path("pyodide/index.js")
+          wheel = os.environ["BRIMFILE_WHEEL"]
+          worker.write_text(replace_library_with_url(
+              worker.read_text(), "brimfile", f"js.toAbsoluteUrl('./{wheel}')"))
+          EOF
+
       - name: Build base Docker image
         run: |
           IMAGE_REPO=${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}

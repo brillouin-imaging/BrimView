@@ -34,6 +34,7 @@ CMD ["/bin/sh", "-c", "panel serve index.py --index=index \
     --use-xheaders \
     --setup request_logger_setup.py \
     --admin --admin-password=$ADMIN_PASSWORD --admin-log-level debug \
+    --static-dirs local=./pyodide \
     --global-loading-spinner \
     --num-procs 1 --num-threads 0 \
     --args from-docker"]

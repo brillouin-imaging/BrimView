@@ -146,7 +146,7 @@ class TinkerFileSelector(PathSelectorMixin, pn.viewable.Viewer):
                 )
         else:
             local_data_widget = CustomPMuiCard(
-                    pn.ui.HTML("<a href='https://biobrillouin.org/brimview-local/'>Load in-browser version</a>"),
+                    pn.ui.HTML("<a href='./local/index.html'>Load in-browser version</a>"),
                     title="Local data",
                     margin=5,
                     sizing_mode="stretch_width",

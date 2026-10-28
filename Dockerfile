@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y \
 COPY src/index.py /app/
 COPY src/BrimView.png /app/src/
 COPY BrimView-widgets /app/BrimView-widgets/
+# Copy the files for the in-browser version of BrimView (pyodide)
+COPY pyodide /app/pyodide/
+COPY src/BrimView.png /app/pyodide/src/
 
 # Install Python deps
 RUN pip install --upgrade pip
@@ -36,6 +39,7 @@ CMD ["/bin/sh", "-c", "panel serve index.py --index=index\
   --liveness --liveness-endpoint healthz \
   --address 0.0.0.0 --port 5006 --allow-websocket-origin 'brimview.embl.org' \
   --admin --admin-password=$ADMIN_PASSWORD --admin-log-level debug \
+  --static-dirs local=./pyodide \
   --global-loading-spinner \
   --num-procs 1 --num-threads 0 \
   --args from-docker"]
