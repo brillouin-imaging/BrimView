@@ -1,6 +1,7 @@
 from brimview_widgets.utils import catch_and_notify
 from .bls_data_visualizer import BlsDataVisualizer
 from .logging import logger
+from .environment import running_from_pyodide
 from .bls_types import bls_param
 
 import panel as pn
@@ -12,6 +13,7 @@ from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
 from bokeh.models.widgets.tables import ScientificFormatter
 
+import asyncio
 import param
 import holoviews as hv
 import numpy as np
@@ -160,7 +162,7 @@ class BlsStatistics(WidgetBase, PyComponent):
 
     # === Average spectrum computation and visualization ===
 
-    def fetch_data_from_points(self, selected_points: ZYXPoints):
+    async def fetch_data_from_points(self, selected_points: ZYXPoints):
         """
         Fetch data from the selected points.
         """
@@ -173,23 +175,35 @@ class BlsStatistics(WidgetBase, PyComponent):
                 None,
             )
         else:
-            all_spectra = []
-            all_quantities = []
-            for z, y, x in self.tqdm(
-                selected_points, desc="Fetching data from points", leave=False
-            ):
-                spectrum, quantities = (
-                    self.bls_data.data.get_spectrum_and_all_quantities_in_image(
-                        ar=self.bls_data.analysis, coor=(z, y, x)
-                    )
+            self.tqdm.max = len(selected_points)
+            self.tqdm.value = 0
+            self.tqdm.text = "Fetching data from points"
+
+            async def fetch_one(coor):
+                result = await self.bls_data.data.get_spectrum_and_all_quantities_in_image_async(
+                    ar=self.bls_data.analysis, coor=coor
                 )
-                all_spectra.append(spectrum)
-                all_quantities.append(quantities)
+                self.tqdm.value += 1
+                return result
+
+            async def fetch_all():
+                return await asyncio.gather(
+                    *(fetch_one((z, y, x)) for z, y, x in selected_points)
+                )
+
+            if running_from_pyodide:
+                results = await fetch_all()
+            else:
+                # Run the code from the brimfile event loop
+                from brimfile.file_abstraction import sync as brimfile_sync
+                results = await asyncio.to_thread(brimfile_sync, fetch_all())
+            all_spectra = [r[0] for r in results]
+            all_quantities = [r[1] for r in results]
             return all_spectra, all_quantities
 
     @pn.depends("selected_points", watch=True)
     @catch_and_notify(prefix="<b>Processing ROI: </b>")
-    def update_widget(self):
+    async def update_widget(self):
         if (
             self.bls_data is None
             or not self.bls_data.is_loaded()
@@ -209,7 +223,7 @@ class BlsStatistics(WidgetBase, PyComponent):
 
         logger.info("Updating statistics widget")
 
-        spectra, quantities = self.fetch_data_from_points(self.selected_points)
+        spectra, quantities = await self.fetch_data_from_points(self.selected_points)
 
         # spectra: (PSD, frequency, PSD_units, frequency_units)
         (common_freq, mean_spectrum, std_spectrum, PSD_units, frequency_units) = (
