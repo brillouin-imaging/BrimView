@@ -1,5 +1,5 @@
 import panel as pn
-import asyncio
+import inspect
 from functools import wraps
 import weakref
 
@@ -90,7 +90,7 @@ def catch_and_notify(duration=4000, notification_type="error", prefix=""):
         prefix (str): Custom (HTML) text to prefix the error message.
     """
     def decorator(func):
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 try:
