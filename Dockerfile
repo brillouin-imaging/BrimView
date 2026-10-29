@@ -17,6 +17,7 @@ COPY BrimView-widgets /app/BrimView-widgets/
 # Copy the files for the in-browser version of BrimView (pyodide)
 COPY pyodide /app/pyodide/
 COPY src/BrimView.png /app/pyodide/src/
+COPY src/BrimView.png /app/pyodide/
 
 # Install Python deps
 RUN pip install --upgrade pip
