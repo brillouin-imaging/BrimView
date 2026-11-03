@@ -6,6 +6,7 @@ from .environment import running_from_pyodide
 if running_from_pyodide:
     import js
     from enum import Enum
+    import traceback
     class PyodideLogger:
         class LogLevel(Enum):
             DEBUG = 1,
@@ -26,7 +27,9 @@ if running_from_pyodide:
         def error (self, msg):
             self._log(msg, PyodideLogger.LogLevel.ERROR)
         def critical (self, msg):
-            self._log(msg, PyodideLogger.LogLevel.CRITICAL) 
+            self._log(msg, PyodideLogger.LogLevel.CRITICAL)
+        def exception(self, msg):
+            self._log(f"{msg}\n{traceback.format_exc()}", PyodideLogger.LogLevel.ERROR)
     logger = PyodideLogger()
 else:
     if _use_panel_logger:
