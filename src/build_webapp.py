@@ -5,6 +5,7 @@ import pathlib
 import re
 import shutil
 import sys
+import tempfile
 
 from importlib.metadata import version
 import warnings
@@ -49,6 +50,27 @@ def build_local_widgets_wheel(widgets_project_dir, output_dir):
         print(f">> Removed build artifacts in {dist_dir}")
 
     return wheel_path.name
+
+def build_brimfile_wheel(output_dir):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_path = pathlib.Path(temp_dir) / "brimfile"
+        dist_dir = pathlib.Path(temp_dir) / "dist"
+        subprocess.run(
+            ["git", "clone", "https://github.com/brillouin-imaging/brimfile.git", str(project_path)],
+            check=True,
+        )
+        subprocess.run(["git", "-C", str(project_path), "fetch", "--tags"], check=True)
+        subprocess.run(
+            [sys.executable, "-m", "build", "--wheel", "--outdir", str(dist_dir), str(project_path)],
+            check=True,
+        )
+        wheels = list(dist_dir.glob("brimfile-*.whl"))
+        if len(wheels) != 1:
+            raise RuntimeError(f"Expected one brimfile wheel in {dist_dir}, found {len(wheels)}")
+        output_path = pathlib.Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(wheels[0], output_path / wheels[0].name)
+        return wheels[0].name
     
 def generate_mock_package_injection(inject_mock_packages):
     lines = []
@@ -86,8 +108,7 @@ def replace_library_with_url(js_code, lib_name, custom_url):
     replaced = False
     for i, item in enumerate(items):
         item = item.strip().strip('"\'')  # Clean up quotes and whitespace
-        # Replace if exact name match (excluding versions for plain names)
-        if item == lib_name or item.split('==')[0] == lib_name:
+        if re.split(r"[=<>!~\[ ;]", item, maxsplit=1)[0] == lib_name:
             items[i] = custom_url
             replaced = True
             break
@@ -130,8 +151,10 @@ check_panel_version()
 
 # Build local brimview-widgets wheel and point the worker to the generated filename
 widgets_wheel_name = build_local_widgets_wheel(widgets_project_dir, output_dir)
+brimfile_wheel_name = build_brimfile_wheel(output_dir)
 overwrite_package_path = [
     ("brimview_widgets", f"js.toAbsoluteUrl('./{widgets_wheel_name}')"),
+    ("brimfile", f"js.toAbsoluteUrl('./{brimfile_wheel_name}')"),
 ]
 
 # Determine output JS filename from project_file
