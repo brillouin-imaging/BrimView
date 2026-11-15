@@ -35,7 +35,7 @@ dependencies = [
   "holoviews>=1.23,<1.24",
   "panel>=1.10,<1.11",
   "xarray",
-  "brimfile[export-tiff]>=1.7"
+  "brimfile[export-tiff]>=1.7.6"
 ]
 
 [project.optional-dependencies]

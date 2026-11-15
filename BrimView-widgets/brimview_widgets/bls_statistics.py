@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from brimview_widgets.utils import catch_and_notify
 from .bls_data_visualizer import BlsDataVisualizer
 from .logging import logger
@@ -11,13 +13,15 @@ from .utils import loading_spinner
 from panel.widgets.base import WidgetBase
 from panel.custom import PyComponent
 from bokeh.models.widgets.tables import ScientificFormatter
+from brimfile.data import Data
 
 import param
 import holoviews as hv
 import numpy as np
-import scipy
 import xarray as xr
 import pandas as pd
+
+from numpy.typing import NDArray
 
 
 ZYXPoints = list[tuple[int, int, int]]
@@ -160,9 +164,12 @@ class BlsStatistics(WidgetBase, PyComponent):
 
     # === Average spectrum computation and visualization ===
 
-    def fetch_data_from_points(self, selected_points: ZYXPoints):
+    def fetch_data_from_points(self, selected_points: ZYXPoints) -> tuple[list[tuple[NDArray, NDArray, str, str]], list[dict]]:
         """
         Fetch data from the selected points.
+        Returns:
+            all_spectra: list of tuples (PSD, frequency, PSD_units, frequency_units)
+            all_quantities: list of dicts {quantity_name: {peak_name: bls.Metadata.Item(value, units)}}
         """
         if not selected_points or self.bls_data is None:
             logger.debug(
@@ -234,38 +241,19 @@ class BlsStatistics(WidgetBase, PyComponent):
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, str, str]:
         if spectra is None or len(spectra) == 0:
             raise ValueError("No spectra provided for averaging")
-        retrieved_PSD = []
-        retrieved_frequency = []
-        for PSD, frequency, PSD_units, frequency_units in spectra:
-            retrieved_PSD.append(PSD)
-            retrieved_frequency.append(frequency)
+        PSDs, frequencies, PSD_units, frequency_units = zip(*spectra)
+        retrieved_PSD = np.stack(PSDs)
+        retrieved_frequency = np.stack(frequencies)
 
-        # Generate average PSD
-        # Figuring out which frequency axis to use
-        n_data_points = len(
-            retrieved_PSD[0]
-        )  # Assuming they all have the same number of points
-        freq_min = np.nanmin(retrieved_frequency)
-        freq_max = np.nanmax(retrieved_frequency)
-        common_freq = np.linspace(freq_min, freq_max, n_data_points)  # shape (71,)
-
-        # Interpolating all the PSDs to the common frequency axis
-        interpolated_psd = np.empty((len(self.selected_points), len(common_freq)))
-        for i in self.tqdm(
-            range(len(self.selected_points)), desc="Interpolating spectra", leave=False
-        ):
-            interp_func = scipy.interpolate.interp1d(
-                retrieved_frequency[i],
-                retrieved_PSD[i],
-                kind="linear",
-                bounds_error=False,
-                fill_value="extrapolate",
+        with self.tqdm(total=1, desc="Interpolating spectra", leave=False) as progress:
+            interpolated_psd, common_freq = Data.interpolate_spectra(
+                retrieved_PSD, retrieved_frequency
             )
-            interpolated_psd[i, :] = interp_func(common_freq)
+            progress.update(1)
 
-        mean_spectrum = np.mean(interpolated_psd, axis=0)  # shape (71,)
+        mean_spectrum = np.mean(interpolated_psd, axis=0) 
         std_spectrum = np.nanstd(interpolated_psd, axis=0)
-        return (common_freq, mean_spectrum, std_spectrum, PSD_units, frequency_units)
+        return (common_freq, mean_spectrum, std_spectrum, PSD_units[-1], frequency_units[-1])
 
     def compute_average_quantities(self, quantities) -> pd.DataFrame:
         """
