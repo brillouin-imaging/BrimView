@@ -197,6 +197,16 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         params["name"] = "Data Analysis visualization"
         super().__init__(**params)
 
+        # The image and the mask overlay are DynamicMaps created once: when a
+        # parameter changes, HoloViews patches the existing Bokeh figure in place
+        # instead of replacing it, so the user's zoom/pan is kept.
+        self._image_dmap = hv.DynamicMap(self._plot_data)
+        self._mask_dmap = hv.DynamicMap(self._plot_mask)
+        self._masked_dmap = (self._image_dmap * self._mask_dmap).opts(
+            hooks=[self._reset_view_if_needed]
+        )
+        self._init_image_streams()
+
         # Explicit annotation, because param and type hinting is not working properly
         self.bls_data: bls.Data = Bh5file.param.data
         self.bls_file: bls.File = Bh5file.param.bls_file
@@ -471,8 +481,8 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
     # Clearing the mask is deliberately its own watcher, not something
     # `_plot_data` does itself. `_plot_data` and `_plot_mask` are combined in
-    # `_plot_masked_data`, so if `_plot_data` set `mask` directly, that write
-    # would re-enter `_plot_masked_data` -> `_plot_data` while the outer call
+    # `_masked_dmap`, so if `_plot_data` set `mask` directly, that write
+    # would re-enter `_plot_data` while the outer call
     # is still on the stack (mask is a dependency of `_plot_mask`).
     @param.depends(
         "img_dataset",
@@ -544,10 +554,12 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             colorbar=True,
             clim=self.colorrange,
             clabel=f"{self.img_vunit.label} ({self.img_vunit.unit})",  # Mimics the hover tool display
+            hooks=[self._update_colorbar_label],
             aspect="equal",
             data_aspect=1,
             axiswise=True,  # Give independent axis
-            framewise=True,
+            # Not `framewise`: the ranges must not be recomputed on every update,
+            # otherwise the user's zoom is lost (see `_reset_view_if_needed`)
             tools=tools,
             title=title,
             # padding=0.2,
@@ -556,27 +568,66 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             responsive=True,
         )
 
-        # Generating the streams to record where the user clicked on the plot
-        stream = streams.Tap(source=img, x=np.nan, y=np.nan)
-        # TODO: try to understand why the lambda is needed here, and why it doesn't work with a direct call to self._update_click_param
-        # The issue is that when the function _plot_data is not called but returned from cache (@only_on_change), 
-        # the subscriber is destroyed and the click event is not captured anymore.
-        stream.add_subscriber(lambda x, y: self._update_click_param(x, y))
+        return img
+
+    def _update_colorbar_label(self, plot, element):
+        # HoloViews updates the color mapper but not an existing colorbar title.
+        colorbar = plot.handles.get("colorbar")
+        if colorbar is not None:
+            colorbar.title = f"{self.img_vunit.label} ({self.img_vunit.unit})"
+
+    def _reset_view_if_needed(self, plot, element):
+        """
+        Bokeh hook of the image overlay: runs on the first render and on every update.
+
+        The user's zoom/pan is kept when only the *values* change (slice, quantity,
+        colormap, colour range, ...). It is reset (together with the target of the
+        Reset tool) when the displayed axes or the extent of the image change, since
+        the old zoom then points at a meaningless region (and the aspect ratio changes).
+        """
+        image = element.get(0)
+        extent = tuple(image.bounds.lbrt())  # (left, bottom, right, top)
+        key = (tuple((dim.name, dim.unit) for dim in image.kdims), extent)
+        previous = getattr(plot, "_brimview_view_key", None)
+        if previous == key:
+            return
+        plot._brimview_view_key = key
+        left, bottom, right, top = extent
+        fig = plot.state
+        # HoloViews preserves the initial responsive aspect ratio on DynamicMap
+        # updates, even when the image's physical dimensions change.
+        fig.aspect_ratio = abs((right - left) / (top - bottom))
+        if previous is None:
+            return
+
+        # The y axis may be inverted (start > end): keep its orientation
+        if fig.y_range.start > fig.y_range.end:
+            bottom, top = top, bottom
+        fig.x_range.update(start=left, end=right, reset_start=left, reset_end=right)
+        fig.y_range.update(start=bottom, end=top, reset_start=bottom, reset_end=top)
+
+    def _init_image_streams(self):
+        """
+        Streams recording the user's interaction with the image.
+
+        They are attached to the (persistent) `_image_dmap`, not to the element
+        returned by `_plot_data`, so they keep working when the plot is updated
+        in place, and nothing has to be re-created on every redraw.
+        """
+        tap = streams.Tap(source=self._image_dmap, x=np.nan, y=np.nan)
+        tap.add_subscriber(self._update_click_param)
+        self._image_streams = [tap]
 
         if _GUI_ROI_SELECTION:
-            lasso = streams.Lasso(source=img)
-            x_coords = self.img_dataset.data.coords[self.img_axis_1].values.tolist()
-            y_coords = self.img_dataset.data.coords[self.img_axis_2].values.tolist()
-            lasso.add_subscriber(
-                lambda geometry: self._create_mask_from_lasso(
-                    geometry, (x_coords, y_coords)
-                )
-            )
+            lasso = streams.Lasso(source=self._image_dmap)
+            lasso.add_subscriber(self._create_mask_from_lasso)
 
-            reset_stream = streams.PlotReset(source=img)
-            # TODO: same as above, try to understand why the lambda is needed here, and why it doesn't work with a direct call to self._reset_mask
-            reset_stream.add_subscriber(lambda resetting: self._reset_mask(resetting=resetting))
-        return img
+            reset_stream = streams.PlotReset(source=self._image_dmap)
+            reset_stream.add_subscriber(
+                lambda resetting: self._reset_mask(resetting=resetting)
+            )
+            # keep references to the streams, so they are not garbage collected
+            self._image_streams += [lasso, reset_stream]
 
     def _reset_mask(self, resetting=True):
         """
@@ -592,7 +643,12 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         logger.debug("Resetting selection mask")
         self.mask = None
 
-    def _create_mask_from_lasso(self, geometry, mask_shape):
+    def _create_mask_from_lasso(self, geometry):
+        # Coordinates of the currently displayed image (read now, not at render time,
+        # since the stream outlives individual renders)
+        x_coords = self.img_dataset.data.coords[self.img_axis_1].values.tolist()
+        y_coords = self.img_dataset.data.coords[self.img_axis_2].values.tolist()
+        mask_shape = (x_coords, y_coords)
 
         def lasso_to_mask(lasso_xy, coordinates_xy):
             """
@@ -667,18 +723,10 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         mask_img = mask_img.opts(
             cmap=["grey", "red"],  # 0 → grey, 1 → red
             alpha=0.4,  # overall transparency
-            framewise=True,
             tools=[],  # no tools for mask
         )
 
         return mask_img
-
-    @pn.depends("_plot_data", "_plot_mask")
-    def _plot_masked_data(self):
-        logger.debug(f"_plot_masked_data")
-        data = self._plot_data()
-        mask = self._plot_mask()
-        return data * mask
 
     def _update_click_param(self, x, y):
         """
@@ -980,7 +1028,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             pn.ui.Row(self.img_axis_3_slice_widget, align="center"),
             # wrap the HoloViews pane in a Column to circumvent the bug https://github.com/panel-extensions/panel-material-ui/issues/548
             pn.ui.Column(
-                pn.ui.HoloViews(self._plot_masked_data, sizing_mode="stretch_width"),
+                pn.ui.HoloViews(self._masked_dmap, sizing_mode="stretch_width"),
             ),
             self.result_options,
             axis_options,
