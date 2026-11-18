@@ -25,6 +25,12 @@ import panel_material_ui as pmui
 from bokeh.models.widgets.tables import HTMLTemplateFormatter
 
 
+# Colour of the acquired data points, for the light and the dark (key: `dark_theme`)
+# theme of the page. The plot background follows the theme, but black points would
+# be invisible on the dark background.
+RAW_POINTS_COLORS = {False: "black", True: "lightgrey"}
+
+
 def _convert_numpy(obj):
     """
     Utility function to convert a Dict with numpy object into a Dict with "pure" python object.
@@ -262,6 +268,13 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
     )
 
     results_at_point = param.Dict(label="Result values at this point", precedence=-1)
+
+    dark_theme = param.Boolean(
+        default=False,
+        precedence=-1,
+        doc="Whether the page uses the dark theme (linked to the light/dark toggle of the page).",
+        allow_refs=True,
+    )
 
     def __init__(self, result_plot: BlsDataVisualizer, **params):
         self.spinner = pmui.CircularProgress(
@@ -561,6 +574,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         "auto_refit.model",
         "auto_refit.constraints_edited",
         "value",
+        "dark_theme",  # the colour of the data points depends on the theme
         on_init=False,
     )
     @catch_and_notify(prefix="<b>Plot spectrum: </b>")
@@ -611,7 +625,13 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
                     hv.Dimension("PSD", unit=PSD_units),
                 ],
                 label=f"Acquired points",
-            ).opts(color="black", axiswise=True, marker="+", size=10)
+            ).opts(
+                color=RAW_POINTS_COLORS[self.dark_theme],
+                axiswise=True,
+                marker="+",
+                size=10,
+                tools=["hover"],  # tooltip with the frequency and PSD (with units) of the point
+            )
             # * hv.Curve((frequency, PSD), label=f"interpolation").opts(
             #     color="black",
             #     axiswise=True,

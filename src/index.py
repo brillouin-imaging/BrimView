@@ -232,7 +232,10 @@ def build_ui():
     # Brim Visualizer tab
     DataVisualizer = brimview_widgets.BlsDataVisualizer(FileSelector)
     rawdata_visualizer = brimview_widgets.BlsRawDataVisualizer(DataVisualizer)
-    spectrum_visualizer = brimview_widgets.BlsSpectrumVisualizer(DataVisualizer)
+    # The colour of the data points follows the light/dark toggle of the page
+    spectrum_visualizer = brimview_widgets.BlsSpectrumVisualizer(
+        DataVisualizer, dark_theme=layout.param.dark_theme
+    )
     statistics_widget = brimview_widgets.BlsStatistics(DataVisualizer)
     brim_visualizer = pn.ui.Row(
         pn.ui.FlexBox(DataVisualizer),
