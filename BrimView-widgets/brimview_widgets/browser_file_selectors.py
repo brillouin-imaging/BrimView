@@ -102,7 +102,7 @@ class CustomJSFileInput(PathSelectorMixin, pn.viewable.Viewer):
             sizing_mode="stretch_width",
         )
         self._card = CustomPMuiCard(self._picker, 
-                                    collapsed=True,
+                                    collapsed=False, # In Pyodide people probably will want to open local files
                                     collapsible=True,
                                     sizing_mode="stretch_width",
                                     title="Local data", 

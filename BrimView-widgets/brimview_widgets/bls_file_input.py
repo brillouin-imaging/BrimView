@@ -17,7 +17,7 @@ from .logging import logger
 
 class BlsFileInput(WidgetBase, PyComponent):
     """
-    Class to read HDF5 files and select data groups.
+    Class to read brim files and select data groups.
     """
 
     # this isn't a proper FileSelector, because we use a FileDropper widget
@@ -311,5 +311,6 @@ class BlsFileInput(WidgetBase, PyComponent):
                 title=self.name,
                 spinner=self.spinner,
                 sizing_mode="stretch_width",
+                collapsed = False,
             )
         return self._main_card
