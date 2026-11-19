@@ -550,6 +550,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             logger.warning("Matplotlib not found, lasso selection disabled.")
 
         img = img.opts(
+            invert_yaxis=True,  # origin at the top left, as usual for images
             cmap=self.colormap,
             colorbar=True,
             clim=self.colorrange,
