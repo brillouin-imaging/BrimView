@@ -7,6 +7,7 @@ WORKDIR /app
 # Install system deps
 RUN apt-get update && apt-get install -y \
     build-essential \
+    git \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,6 +22,10 @@ COPY src/BrimView.png /app/pyodide/
 
 # Install Python deps
 RUN pip install --upgrade pip
+# install the latest version of brimfile from GitHub
+RUN git clone --tags https://github.com/brillouin-imaging/brimfile.git /tmp/brimfile \
+  && pip install --no-cache-dir "/tmp/brimfile[export-tiff,remote-store]" \
+  && rm -rf /tmp/brimfile
 RUN pip install --no-cache-dir "./BrimView-widgets[processing, remote-store]"
 RUN pip install --no-cache-dir psutil
 
