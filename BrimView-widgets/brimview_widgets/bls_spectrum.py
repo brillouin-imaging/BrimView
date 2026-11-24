@@ -362,6 +362,8 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         with pn.io.hold():
             self._no_analysis_alert.visible = no_analysis
             self.saved_fit.set_enabled(not no_analysis)
+            if no_analysis:
+                self.saved_fit.fitted_parameters = None
 
     def _source_key(self):
         """Identifies the data group a spectrum comes from: (file, data group index)"""

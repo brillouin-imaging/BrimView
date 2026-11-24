@@ -342,6 +342,24 @@ def test_spectrum_controls_follow_the_analysis_availability(app, tmp_path):
     assert not spectrum.saved_fit._process_switch._switch.disabled
 
 
+def test_loading_file_without_analysis_clears_saved_fit_table(app, tmp_path):
+    create_brim(tmp_path / "with.brim.zip", with_analysis=True)
+    create_brim(tmp_path / "no.brim.zip")
+    app.load(tmp_path / "with.brim.zip")
+    spectrum = app.spectrum
+
+    app.click(y=1, x=2)
+    spectrum.plot_spectrum()
+
+    assert spectrum.saved_fit.fitted_parameters is not None
+    assert spectrum.saved_fit._table.visible
+
+    app.load(tmp_path / "no.brim.zip")
+
+    assert spectrum.saved_fit.fitted_parameters is None
+    assert not spectrum.saved_fit._table.visible
+
+
 def test_auto_refit_without_analysis(app, tmp_path, notifications):
     _, shift = create_brim(tmp_path / "a.brim.zip")
     app.load(tmp_path / "a.brim.zip")
@@ -415,6 +433,25 @@ def test_statistics_of_a_selection_without_analysis(app, tmp_path, notifications
     assert len(stats.selected_points) > 0
     assert stats.spectrum_plot_widget.object is not None  # the average spectrum
     assert stats.statistic_tabulator_widget.visible is False  # no quantities to average
+    assert notifications == []
+
+
+def test_statistics_of_sparse_only_selection_clears_previous_result(app, tmp_path, notifications):
+    create_sparse_brim(tmp_path / "sparse.brim.zip")
+    app.load(tmp_path / "sparse.brim.zip")
+    stats = app.statistics
+    lasso = app.visualizer._image_streams[1]
+
+    lasso.event(geometry=np.array([(2, -1), (4, -1), (4, 1), (2, 1)]))
+    assert stats.spectrum_plot_widget.object is not None
+    assert not stats.loading and not stats.tqdm.visible
+
+    lasso.event(geometry=np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)]))
+
+    assert stats.selected_points == [(0, 0, 0)]
+    assert stats.spectrum_plot_widget.object is None
+    assert not stats.statistic_tabulator_widget.visible
+    assert not stats.loading and not stats.tqdm.visible
     assert notifications == []
 
 

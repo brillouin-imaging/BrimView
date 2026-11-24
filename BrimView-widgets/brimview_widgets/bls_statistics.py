@@ -227,6 +227,15 @@ class BlsStatistics(WidgetBase, PyComponent):
         logger.info("Updating statistics widget")
 
         spectra, quantities = self.fetch_data_from_points(self.selected_points)
+        if not spectra:
+            logger.debug("No spectra in the selected region, clearing statistics widget")
+            with pn.io.hold():
+                self.spectrum_plot_widget.object = None
+                self.statistic_tabulator_widget.value = self.placeholder_dataframe()
+                self.statistic_tabulator_widget.visible = False
+                self.tqdm.visible = False
+                self.loading = False
+            return
 
         # spectra: (PSD, frequency, PSD_units, frequency_units)
         (common_freq, mean_spectrum, std_spectrum, PSD_units, frequency_units) = (
@@ -377,4 +386,3 @@ class BlsStatistics(WidgetBase, PyComponent):
             sizing_mode="stretch_width",
         )
         return card
-
