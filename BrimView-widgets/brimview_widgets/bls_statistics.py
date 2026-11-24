@@ -182,14 +182,23 @@ class BlsStatistics(WidgetBase, PyComponent):
         else:
             all_spectra = []
             all_quantities = []
+            # The data group may not have any analysis results: only the spectra are available then
+            has_analysis = self.bls_data.analysis is not None
             for z, y, x in self.tqdm(
                 selected_points, desc="Fetching data from points", leave=False
             ):
-                spectrum, quantities = (
-                    self.bls_data.data.get_spectrum_and_all_quantities_in_image(
-                        ar=self.bls_data.analysis, coor=(z, y, x)
+                if has_analysis:
+                    spectrum, quantities = (
+                        self.bls_data.data.get_spectrum_and_all_quantities_in_image(
+                            ar=self.bls_data.analysis, coor=(z, y, x)
+                        )
                     )
-                )
+                else:
+                    spectrum = self.bls_data.data.get_spectrum_in_image((z, y, x))
+                    quantities = {}
+                if spectrum[0] is None:
+                    # No spectrum at this pixel (possible for sparse data)
+                    continue
                 all_spectra.append(spectrum)
                 all_quantities.append(quantities)
             return all_spectra, all_quantities
@@ -199,7 +208,8 @@ class BlsStatistics(WidgetBase, PyComponent):
     def update_widget(self):
         if (
             self.bls_data is None
-            or not self.bls_data.is_loaded()
+            # (the analysis results are not required: without them only the spectrum is shown)
+            or not self.bls_data.is_loaded(require_analysis=False)
             or not self.selected_points
         ):
             logger.debug(
@@ -217,6 +227,15 @@ class BlsStatistics(WidgetBase, PyComponent):
         logger.info("Updating statistics widget")
 
         spectra, quantities = self.fetch_data_from_points(self.selected_points)
+        if not spectra:
+            logger.debug("No spectra in the selected region, clearing statistics widget")
+            with pn.io.hold():
+                self.spectrum_plot_widget.object = None
+                self.statistic_tabulator_widget.value = self.placeholder_dataframe()
+                self.statistic_tabulator_widget.visible = False
+                self.tqdm.visible = False
+                self.loading = False
+            return
 
         # spectra: (PSD, frequency, PSD_units, frequency_units)
         (common_freq, mean_spectrum, std_spectrum, PSD_units, frequency_units) = (
@@ -228,11 +247,16 @@ class BlsStatistics(WidgetBase, PyComponent):
         self.spectrum_plot_widget.object = curve
 
         # quantities: result[quantity.name][peak.name] = bls.Metadata.Item(value, units)
-        df_quantities = self.compute_average_quantities(quantities)
+        # There are none to show if the data group has no analysis results
+        has_quantities = self.bls_data.analysis is not None
+        df_quantities = (
+            self.compute_average_quantities(quantities) if has_quantities else None
+        )
 
         with pn.io.hold():
-            self.statistic_tabulator_widget.visible = True
-            self.statistic_tabulator_widget.value = df_quantities
+            if has_quantities:
+                self.statistic_tabulator_widget.value = df_quantities
+            self.statistic_tabulator_widget.visible = has_quantities
             self.tqdm.visible = False
             self.loading = False
 
@@ -362,4 +386,3 @@ class BlsStatistics(WidgetBase, PyComponent):
             sizing_mode="stretch_width",
         )
         return card
-

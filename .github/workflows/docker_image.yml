@@ -31,7 +31,7 @@ jobs:
       - name: Build pyodide webapp
         run: |
           pip install build
-          pip install "./BrimView-widgets[processing, localfile, remote-store, statistics]"
+          pip install "./BrimView-widgets[processing, remote-store, statistics]"
           python src/build_webapp.py
 
       - name: Build base Docker image
