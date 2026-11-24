@@ -10,6 +10,7 @@ import scipy
 import time
 import brimfile as bls
 from .models import BlsProcessingModels, MultiPeakModel
+from .fit_initial_guess import initial_peak_guess, water_shift_and_width
 from .bls_data_visualizer import BlsDataVisualizer
 
 from .utils import catch_and_notify, safe_get, loading_spinner
@@ -91,6 +92,8 @@ class FitParam(pn.viewable.Viewer):
 
     def __init__(self, **params):
         super().__init__(**params)
+        # Whether the user changed a fit constraint since the last reset
+        self.user_edited = False
         # Creating some widget
         self._process_switch = SwitchWithLabels(
             name="",
@@ -159,7 +162,23 @@ class FitParam(pn.viewable.Viewer):
         self.fitted_parameters
         self.process: bool
 
+    def set_enabled(self, enabled: bool):
+        """
+        Enable/disable the controls of this fit (e.g. when the file has no analysis results,
+        so there is no fit to display or to start a re-fit from).
+        """
+        with pn.io.hold():
+            self._process_switch._switch.disabled = not enabled
+            self._reset_button.disabled = not enabled
+            if enabled:
+                # whether the model dropdown is usable depends on the number of models
+                self._update_model_widget()
+            else:
+                self._model_dropdown.disabled = True
+
     def _on_constraint_edit(self, event):
+        # (remembered until the constraints are reset)
+        self.user_edited = True
         self.param.trigger("constraints_edited")
 
     def _update_model_widget(self):
@@ -171,6 +190,7 @@ class FitParam(pn.viewable.Viewer):
             self._model_dropdown.description = self.param.model.doc
 
     def _reset_fitted_parameters(self, _event):
+        self.user_edited = False
         self.fitted_parameters = None
         # trigger the constraints_edited event to update the table
         self.param.trigger("constraints_edited")
@@ -281,6 +301,10 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
             value=False, size=20, label="Idle", visible=True
         )
         self.bls_spectrum_in_image = None
+        # `_source_key` of the displayed spectrum
+        self._spectrum_source = None
+        # (data, (water shift, water width) or None) used by `_initial_guess`
+        self._water_cache = None
         params["name"] = "Spectrum visualization"
         super().__init__(**params)
         self.tooltip = "**Click on the image** to display the spectrum at the selected pixel. If a fit model is available, it will be displayed as well."
@@ -288,13 +312,6 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
 
         # Reference to the "main" plot_click
         self.dataset_zyx_coord = result_plot.param.dataset_zyx_click
-
-        # Test
-        self.value: bls_param = bls_param(
-            file=result_plot.param.bls_file,
-            data=result_plot.param.bls_data,
-            analysis=result_plot.param.bls_analysis,
-        )
 
         self.saved_fit = FitParam(name="Saved fit")
         self.auto_refit = FitParam(name="Auto re-fit")
@@ -309,8 +326,67 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         # Configure autore_fit widget
         self.auto_refit._reset_button.visible = True
 
+        # Shown when the file has no analysis results (see `_update_analysis_availability`)
+        self._no_analysis_alert = pn.ui.Alert(
+            object=(
+                "No analysis results present in the file: there is no saved fit to show. "
+                "The “Auto re-fit” can still be used to fit the spectrum."
+            ),
+            severity="info",  # (the default one is "success")
+            visible=False,
+            sizing_mode="stretch_width",
+            margin=5,
+        )
+
+        # Set last: `_update_analysis_availability` listens to it and needs the widgets above
+        self.value: bls_param = bls_param(
+            file=result_plot.param.bls_file,
+            data=result_plot.param.bls_data,
+            analysis=result_plot.param.bls_analysis,
+        )
+
         # Annoation help
         self.model_fit: BlsProcessingModels
+
+    @pn.depends("value.data", "value.analysis", watch=True)
+    def _update_analysis_availability(self):
+        """
+        Without analysis results there is no saved fit to show. The auto re-fit does not need
+        them (it starts from values estimated from the spectrum, see `_initial_guess`).
+        """
+        no_analysis = (
+            self.value is not None
+            and self.value.data is not None
+            and self.value.analysis is None
+        )
+        with pn.io.hold():
+            self._no_analysis_alert.visible = no_analysis
+            self.saved_fit.set_enabled(not no_analysis)
+
+    def _source_key(self):
+        """Identifies the data group a spectrum comes from: (file, data group index)"""
+        try:
+            return (self.value.file.filename, self.value.data.get_index())
+        except Exception:
+            return None
+
+    @pn.depends("value.analysis", watch=True)
+    def _refresh_spectrum_on_new_analysis(self):
+        """
+        The analysis results of the data group changed (e.g. the spectra were just analyzed
+        from the "(Re-)analyze spectra" tab, or another result was selected): update the
+        displayed spectrum, so that it doesn't keep showing the previous ones until
+        another pixel is clicked. Nothing to do for a different data group, whose pixel
+        coordinates have no relation with the displayed ones.
+        """
+        if (
+            self.bls_spectrum_in_image is None
+            or self.dataset_zyx_coord is None
+            or self._spectrum_source is None
+            or self._spectrum_source != self._source_key()
+        ):
+            return
+        self.retrieve_point_rawdata()
 
     @staticmethod
     def _get_peak_quantities(qts, peak, default=None) -> dict:
@@ -342,6 +418,10 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
     def _compute_fitted_curves(self, x_range: np.ndarray, z, y, x):
         if self.saved_fit.process is False:
             return []
+        if self.value.analysis is None:
+            # no analysis results -> no saved fit
+            self.saved_fit.fitted_parameters = None
+            return {}
 
         fits = {}
         qts = self.results_at_point
@@ -395,14 +475,42 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
 
         return curves
 
+    def _initial_guess(self, PSD, frequency) -> tuple[int, dict]:
+        """
+        Number of peaks and starting values of the auto re-fit when the file has no analysis
+        results: the maximum of the spectrum around the shift and linewidth of water.
+        """
+        data = self.value.data
+        if self._water_cache is None or self._water_cache[0] is not data:
+            try:
+                water = water_shift_and_width(data)
+            except ValueError as e:
+                water = None
+                pn.state.notifications.warning(
+                    f"Auto re-fit: the shift and linewidth of water cannot be computed ({e}). "
+                    "The starting values are estimated from the spectrum only.",
+                    duration=8000,
+                )
+            # kept for the other pixels (and the notification is shown only once per data group)
+            self._water_cache = (data, water)
+        water = self._water_cache[1]
+        water_shift, water_width = water if water is not None else (None, None)
+        return initial_peak_guess(PSD, frequency, water_shift, water_width)
+
     # TODO: rename to something better
     def auto_refit_and_plot(self, x_range, PSD, frequency, PSD_units, frequency_units):
         if self.auto_refit.process is False:
             return []
 
         logger.info("Re-fitting curves...")
+        has_analysis = self.value.analysis is not None
+        if has_analysis:
+            n_peaks = len(self.value.analysis.list_existing_peak_types())
+            guess = None
+        else:
+            # No saved fit to start from: estimate the starting values from the spectrum
+            n_peaks, guess = self._initial_guess(PSD, frequency)
         # Creating the multipeak model function
-        n_peaks = len(self.value.analysis.list_existing_peak_types())
         multi_peak_model = MultiPeakModel(
             base_model=self.auto_refit.model, n_peaks=n_peaks
         )
@@ -411,15 +519,18 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         previous_fits = {}
         qts = self.results_at_point
         i = 0
-        for peak in self.value.analysis.list_existing_peak_types():
-            quantities = self._get_peak_quantities(qts, peak, default=0)
+        if has_analysis:
+            for peak in self.value.analysis.list_existing_peak_types():
+                quantities = self._get_peak_quantities(qts, peak, default=0)
 
-            # Converting to HDF5_BLS_treat naming
-            previous_fits[f"b{i}"] = quantities["offset"]
-            previous_fits[f"a{i}"] = quantities["amplitude"]
-            previous_fits[f"nu0{i}"] = quantities["shift"]
-            previous_fits[f"gamma{i}"] = quantities["width"]
-            i += 1
+                # Converting to HDF5_BLS_treat naming
+                previous_fits[f"b{i}"] = quantities["offset"]
+                previous_fits[f"a{i}"] = quantities["amplitude"]
+                previous_fits[f"nu0{i}"] = quantities["shift"]
+                previous_fits[f"gamma{i}"] = quantities["width"]
+                i += 1
+        else:
+            previous_fits = guess
 
         logger.info(f"[TRACE] saved fit: {previous_fits}")
 
@@ -429,7 +540,11 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         stored_upper_bounds = {}
         stored_starting_values = {}
         stored_lower_bounds = {}
-        if self.auto_refit.fitted_parameters is not None:
+        # Without analysis results the stored values are the ones estimated for the first
+        # pixel: they are only kept if the user chose them, otherwise every pixel gets its own.
+        if self.auto_refit.fitted_parameters is not None and (
+            has_analysis or self.auto_refit.user_edited
+        ):
             rows: pd.DataFrame = self.auto_refit.fitted_parameters
             # Converting from pd.DataFrame into the dict of parameters
             for (
@@ -526,33 +641,48 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
 
         (z, y, x) = self.get_coordinates()
         if self.value is not None and self.value.data is not None:
-
-            # First updating self.saved_fit.model
-            try:
-                used_model = self.value.analysis.fit_model
-                used_model = BlsProcessingModels.from_brimfile_models(used_model)
-                tooltip_text = "The peak model was retrieved from the file's metadata"
-            except Exception as e:
-
-                # If the user is not wanting to display the saved_fit, then let's just do this silently
-                if self.saved_fit.process:
-                    pn.state.notifications.warning(
-                        f"`Saved fit`: Continuing with default peak function \n ({e})"
-                    )
-                used_model = BlsProcessingModels.Lorentzian
-                tooltip_text = f"Impossible to use file's metadata to determine the peak model. Using a default peak model instead. \n(Reported error: *{e}*)"
-
-            self.saved_fit.force_single_model(used_model, tooltip_text)
-
-            # Then updating the rest
-            self.bls_spectrum_in_image, self.results_at_point = (
-                self.value.data.get_spectrum_and_all_quantities_in_image(
-                    self.value.analysis, (z, y, x)
+            if self.value.analysis is None:
+                # No analysis results in the file: there are no quantities and no saved fit,
+                # but the acquired spectrum can still be displayed
+                self.bls_spectrum_in_image = self.value.data.get_spectrum_in_image(
+                    (z, y, x)
                 )
-            )
+                # `results_at_point` is what `plot_spectrum` listens to, but it is empty
+                # for every pixel: assigning an empty dict again would not notify it.
+                if self.results_at_point == {}:
+                    self.param.trigger("results_at_point")
+                else:
+                    self.results_at_point = {}
+            else:
+                # First updating self.saved_fit.model
+                try:
+                    used_model = self.value.analysis.fit_model
+                    used_model = BlsProcessingModels.from_brimfile_models(used_model)
+                    tooltip_text = "The peak model was retrieved from the file's metadata"
+                except Exception as e:
 
+                    # If the user is not wanting to display the saved_fit, then let's just do this silently
+                    if self.saved_fit.process:
+                        pn.state.notifications.warning(
+                            f"`Saved fit`: Continuing with default peak function \n ({e})"
+                        )
+                    used_model = BlsProcessingModels.Lorentzian
+                    tooltip_text = f"Impossible to use file's metadata to determine the peak model. Using a default peak model instead. \n(Reported error: *{e}*)"
+
+                self.saved_fit.force_single_model(used_model, tooltip_text)
+
+                # Then updating the rest
+                self.bls_spectrum_in_image, self.results_at_point = (
+                    self.value.data.get_spectrum_and_all_quantities_in_image(
+                        self.value.analysis, (z, y, x)
+                    )
+                )
         else:
             self.bls_spectrum_in_image = None
+
+        self._spectrum_source = (
+            self._source_key() if self.bls_spectrum_in_image is not None else None
+        )
 
         now = time.time()
         logger.info(f"retrieve_point_rawdata at {now:.4f} seconds [done]")
@@ -585,10 +715,14 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         (z, y, x) = self.get_coordinates()
         # Generate a fake spectrum for demonstration purposes
         curves = []
+        # The fits are computed from the analysis results, which a file may not have
+        has_analysis = self.value is not None and self.value.analysis is not None
         if (
             self.value is not None
             and self.value.data is not None
             and self.bls_spectrum_in_image is not None
+            # (the pixels without any spectrum, in sparse data, give None)
+            and self.bls_spectrum_in_image[0] is not None
         ):
             (PSD, frequency, PSD_units, frequency_units) = self.bls_spectrum_in_image
             x_range = np.arange(np.nanmin(frequency), np.nanmax(frequency), 0.1)
@@ -596,7 +730,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
             # Try catch clauses, so that an error in one curve doesn't
             # block the others to be displayed
             try:
-                if self.saved_fit.process:
+                if self.saved_fit.process and has_analysis:
                     saved_curves = self.fitted_curves(x_range, z, y, x)
                     curves.extend(saved_curves)
             except Exception as e:
@@ -712,7 +846,10 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         # Get spectrum data
         if self.value.data is not None:
             PSD, frequency, PSD_unit, freq_unit = self.bls_spectrum_in_image
-            fits = self._compute_fitted_curves(frequency, z, y, x)
+            if self.value.analysis is not None:
+                fits = self._compute_fitted_curves(frequency, z, y, x)
+            else:
+                fits = {}  # no analysis results -> no saved fit
         else:
             PSD, frequency = np.array([]), np.array([])
             fits = {}
@@ -745,6 +882,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
     def __panel__(self):
 
         return CustomPMuiCard(
+            self._no_analysis_alert,
             pn.ui.HoloViews(
                 self.plot_spectrum,
                 height=300,  # Not the greatest solution

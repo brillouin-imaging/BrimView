@@ -426,9 +426,11 @@ class BlsDoTreatment(pn.viewable.Viewer):
         PSD_flat = PSD.reshape(-1, PSD.shape[-1])
         freq_flat = frequency.reshape(-1, frequency.shape[-1])
 
-        # we're sampling some spectra
+        # we're sampling some spectra (never more than the dataset has, e.g. for a small map)
         flat_indices = np.random.choice(
-            num_spectra, size=self.mean_spectra_n_samples.value, replace=False
+            num_spectra,
+            size=min(self.mean_spectra_n_samples.value, num_spectra),
+            replace=False,
         )
 
         interpolated_psd = np.empty(

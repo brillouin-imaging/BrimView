@@ -1,3 +1,5 @@
+import warnings
+
 import panel as pn
 import panel_material_ui as pmui
 import param
@@ -53,6 +55,15 @@ def _defer_param_update(fn):
     pn.state.add_periodic_callback(fn, period=200, count=1)
 
 
+# What is displayed when the data group has no analysis results (see
+# `BlsDataVisualizer._compute_psd_image`): the maximum of each spectrum (PSD).
+PSD_IMAGE_DESCRIPTION = "the maximum of each spectrum (PSD)"
+NO_ANALYSIS_MESSAGE = (
+    "No analysis results present in the file, "
+    f"showing {PSD_IMAGE_DESCRIPTION} instead."
+)
+
+
 def get_linear_colormaps() -> dict:
     """
     Creates the dictionnary of of colorpalettes to be displayed in the app.
@@ -74,16 +85,20 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         ->
     """
 
+    # The 3 selectors below are empty (None) when the data group has no analysis results
     result_index = param.ObjectSelector(
-        default="Treatment 1", objects=["Treatment 1", "Treatment 2", "Treatment 3"]
+        default="Treatment 1",
+        objects=["Treatment 1", "Treatment 2", "Treatment 3"],
+        allow_None=True,
     )
     result_quantity = param.ObjectSelector(
-        default="Shift", objects=["Shift", "Linewidth", "Amplitude"]
+        default="Shift", objects=["Shift", "Linewidth", "Amplitude"], allow_None=True
     )
 
     result_peak = param.ObjectSelector(
         default=bls.Data.AnalysisResults.PeakType.average,
         objects=[bls.Data.AnalysisResults.PeakType.average],
+        allow_None=True,
     )
 
     colormap = param.ObjectSelector(default=cc.palette["fire"], objects=cc.palette)
@@ -176,6 +191,9 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         # a plain instance attribute.
         self._axis_reconciling = False
 
+        # (bls_data, result) of the last `_compute_psd_image` call
+        self._psd_image_cache = None
+
         # Bh5file.param.watch(self._update_data, ["data"])
         # self.get_bh5_file = Bh5file.get_bh5_file
         self.img_data = np.zeros((512, 512))  # Placeholder for no data
@@ -251,6 +269,13 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             result["custom_name"]: result["index"] for result in results_list
         }
         self.param.result_index.objects = cleaned_results_list
+        if not cleaned_results_list:
+            # No analysis results in this data group: there is nothing to select.
+            # `_update_result_variable` takes care of the rest (see `_update_img_data`
+            # for what is displayed instead)
+            self.result_index = None
+            self.result_index_dropdown.disabled = True
+            return
         self.result_index = list(cleaned_results_list.values())[0]
         if len(cleaned_results_list) > 1:
             self.result_index_dropdown.disabled = False
@@ -262,7 +287,20 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
     @catch_and_notify(prefix="<b>Update results: </b>")
     def _update_result_variable(self):
         logger.debug("_update_result_variable")
-        if self.bls_data is None or self.result_index is None:
+        if self.bls_data is None:
+            self._update_result_selection_state()
+            return
+
+        if self.result_index is None:
+            # No analysis results in this data group. Make sure that nothing of the
+            # previously loaded analysis stays around (it would not match the new data)
+            with param.parameterized.batch_call_watchers(self):
+                self.bls_analysis = None
+                self.param.result_peak.objects = []
+                self.result_peak = None
+                self.param.result_quantity.objects = []
+                self.result_quantity = None
+            self._update_result_selection_state()
             return
 
         # Synchronously update the param variables
@@ -294,7 +332,28 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             if len(quantity_list) > 1:
                 self.result_quantity_dropdown.disabled = False
             else:
+                self.result_quantity_dropdown.disabled = True
+        self._update_result_selection_state()
+
+    def _update_result_selection_state(self):
+        """
+        Reflect in the "Result display selection" card whether the loaded data group
+        has analysis results to choose from.
+
+        Without them, the image is computed from the PSD (see `_update_img_data`), so
+        the selection widgets are disabled and the card explains what is shown instead.
+        Otherwise the widgets are enabled again: whether each dropdown is actually
+        usable depends on how many options it has, which is decided by
+        `_update_result_list` and `_update_result_variable`.
+        """
+        no_analysis = self.bls_data is not None and self.bls_analysis is None
+        with pn.io.hold():
+            self.result_download.disabled = no_analysis
+            self._no_analysis_alert.visible = no_analysis
+            if no_analysis:
                 self.result_index_dropdown.disabled = True
+                self.result_quantity_dropdown.disabled = True
+                self.result_peak_dropdown.disabled = True
 
     @param.depends(
         "result_quantity",  # User IO
@@ -303,28 +362,37 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         watch=True,
     )
     @only_on_change(
-        "bls_analysis", "result_quantity", "result_peak", "use_physical_units"
+        "bls_data",
+        "bls_analysis",
+        "result_quantity",
+        "result_peak",
+        "use_physical_units",
     )
     @catch_and_notify(prefix="<b>Update image: </b>")
     def _update_img_data(self):
         logger.debug("_update_img_data")
-        if self.bls_analysis is None:
+        if self.bls_data is None:
             self.img_data = np.zeros((512, 512))
             return
 
-        (img_data, px_units) = self.bls_analysis.get_image(
-            self.result_quantity, self.result_peak
-        )
-        # img_data = img_data[1, :, :]
-        # TODO remove this hack once we have updated brimfile
-        target_peak = self.result_peak
-        if target_peak == bls.Data.AnalysisResults.PeakType.average:
-            target_peak = self.bls_analysis.list_existing_peak_types()[0]
+        if self.bls_analysis is None:
+            # No analysis results in this data group: show an image computed from the PSD
+            img_data, px_units, vunit = self._compute_psd_image()
+            self.img_vunit = vunit
+        else:
+            (img_data, px_units) = self.bls_analysis.get_image(
+                self.result_quantity, self.result_peak
+            )
+            # img_data = img_data[1, :, :]
+            # TODO remove this hack once we have updated brimfile
+            target_peak = self.result_peak
+            if target_peak == bls.Data.AnalysisResults.PeakType.average:
+                target_peak = self.bls_analysis.list_existing_peak_types()[0]
 
-        self.img_vunit = hv.Dimension(
-            self.result_quantity.name,
-            unit=self.bls_analysis.get_units(self.result_quantity, target_peak),
-        )
+            self.img_vunit = hv.Dimension(
+                self.result_quantity.name,
+                unit=self.bls_analysis.get_units(self.result_quantity, target_peak),
+            )
 
         if isinstance(px_units[0], float):
             px_units = (
@@ -371,6 +439,55 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         )
 
         # self.img_data = img_data[1, :, :]
+
+    def _compute_psd_image(self):
+        """
+        Image to display when the data group has no analysis results: the maximum
+        of each spectrum (PSD).
+
+        Returns
+        -------
+        (img_data, px_size, vunit)
+            `img_data` is a (z, y, x) array (NaN for the pixels without a spectrum),
+            `px_size` the pixel size as a tuple of 3 `bls.Metadata.Item` in the order
+            (z, y, x) and `vunit` the `hv.Dimension` describing the displayed values.
+
+        The result is cached for the current `bls_data`, since reading the PSD can be
+        slow and the image is requested again e.g. when switching physical units.
+        """
+        cached = self._psd_image_cache
+        if cached is not None and cached[0] is self.bls_data:
+            return cached[1]
+
+        data = self.bls_data
+        # TODO: this loads the whole PSD in memory (as the "(Re-)analyze spectra" tab also does)
+        # just to keep the maximum of each spectrum. It could be made more efficient, e.g. by
+        # reading the PSD by chunks and keeping only the maximum of each, or by computing it
+        # lazily (and not for the whole dataset) in brimfile.
+        PSD, _, PSD_units, _ = data.get_PSD_as_spatial_map(broadcast_frequency=False)
+        # The PSD is (z, y, x, [parameters], spectrum): the maximum is along the spectrum
+        with warnings.catch_warnings():
+            # a spectrum with only NaNs gives a NaN pixel, which is what we want
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            img_data = np.nanmax(PSD, axis=-1).astype(float)
+        while img_data.ndim > 3:
+            # Only the first value of any additional parameter is displayed
+            img_data = img_data[..., 0]
+
+        # TODO: brimfile doesn't (yet) expose the spatial map and the pixel size of a data
+        # group without going through its analysis results, so this reads internal attributes.
+        # Sparse data: the pixels without any spectrum are marked with a negative index
+        spatial_map = getattr(data, "_spatial_map", None)
+        if getattr(data, "_sparse", False) and spatial_map is not None:
+            img_data[np.asarray(spatial_map) < 0] = np.nan
+        px_size = getattr(data, "_spatial_map_px_size", None)
+        if px_size is None:
+            px_size = 3 * (bls.Metadata.Item(1, None),)
+
+        vunit = hv.Dimension("max_PSD", label="Max PSD", unit=PSD_units)
+        result = (img_data, px_size, vunit)
+        self._psd_image_cache = (data, result)
+        return result
 
     @param.depends("_update_img_data")
     def phys_unit_widget(self):
@@ -533,11 +650,12 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         frame = self._get_datasetslice()
         img = hv.Image(frame)
 
-        if (
-            self.bls_data is None
-            or self.bls_analysis is None
-            or self.result_peak is None
-        ):
+        if self.bls_data is None:
+            title = "Load data"
+        elif self.bls_analysis is None:
+            # No analysis results: the image is computed from the PSD
+            title = f"{self.bls_data.get_name()}/PSD maximum ({self._img_dimension_label()})"
+        elif self.result_peak is None:
             title = "Load data"
         else:
             # title = f"{self.bls_data.get_name()}/{self.bls_analysis.get_name()}/{self.result_peak} "
@@ -554,7 +672,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             cmap=self.colormap,
             colorbar=True,
             clim=self.colorrange,
-            clabel=f"{self.img_vunit.label} ({self.img_vunit.unit})",  # Mimics the hover tool display
+            clabel=self._colorbar_label(),  # Mimics the hover tool display
             hooks=[self._update_colorbar_label],
             aspect="equal",
             data_aspect=1,
@@ -571,11 +689,17 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
         return img
 
+    def _colorbar_label(self) -> str:
+        # The unit is not always known (e.g. the PSD of a file may not have one)
+        if self.img_vunit.unit:
+            return f"{self.img_vunit.label} ({self.img_vunit.unit})"
+        return self.img_vunit.label
+
     def _update_colorbar_label(self, plot, element):
         # HoloViews updates the color mapper but not an existing colorbar title.
         colorbar = plot.handles.get("colorbar")
         if colorbar is not None:
-            colorbar.title = f"{self.img_vunit.label} ({self.img_vunit.unit})"
+            colorbar.title = self._colorbar_label()
 
     def _reset_view_if_needed(self, plot, element):
         """
@@ -882,7 +1006,8 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         import os
 
         if self.bls_data is None or self.bls_analysis is None:
-            logger.error("No data loaded, cannot download tiff")
+            # (the export button is disabled in these cases, see `_update_result_selection_state`)
+            logger.error("No data or no analysis results loaded, cannot download tiff")
             return
 
         # temp fix: filename retuns the full path of the file
@@ -920,7 +1045,19 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             callback=self.download_tiff,
         )
 
+        # Explains why the selection above is disabled when the file has no analysis
+        # results (see `_update_result_selection_state`). A visible message rather than
+        # a tooltip: the tooltip of a disabled widget is never shown.
+        self._no_analysis_alert = pn.ui.Alert(
+            object=NO_ANALYSIS_MESSAGE,
+            severity="info",  # (the default one is "success")
+            visible=False,
+            sizing_mode="stretch_width",
+            margin=5,
+        )
+
         self.result_options = CustomPMuiCard(
+            self._no_analysis_alert,
             pn.ui.FlexBox(
                 self.result_index_dropdown,
                 self.result_quantity_dropdown,
