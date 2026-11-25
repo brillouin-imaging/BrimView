@@ -64,6 +64,13 @@ NO_ANALYSIS_MESSAGE = (
 )
 
 
+# Style of the overlay showing the selected region (see `BlsDataVisualizer._plot_mask`):
+# unselected pixels (0) are dimmed with a semi-transparent grey, selected pixels (1) are
+# fully transparent (an 8-digit hex colour with alpha 00).
+MASK_CMAP = ["#808080", "#00000000"]
+MASK_ALPHA = 0.6
+
+
 def get_linear_colormaps() -> dict:
     """
     Creates the dictionnary of of colorpalettes to be displayed in the app.
@@ -831,27 +838,27 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         Return an HoloViews Image overlay of the current mask.
 
         The mask should be a boolean array of the same shape as the image.
-        True pixels are highlighted (e.g., red), False pixels are transparent.
+        True pixels (the selected region) are fully transparent, so the image is
+        displayed unaltered there; False pixels are dimmed with a semi-transparent grey.
         """
         logger.debug(f"_plot_mask")
         if self.mask is None:
-            # Nothing to overlay
-            return hv.Image(np.zeros((1, 1)))  # dummy invisible image
+            # Nothing to overlay: a dummy image whose only pixel is transparent.
+            mask_data = np.ones((1, 1), dtype=int)
+        else:
+            # Convert boolean mask to 0/1
+            mask_data = self.mask.astype(int)[::-1]
 
-        # Convert boolean mask to 0/1
-        mask_data = self.mask.astype(int)
-
-        # Create an HoloViews Image
-        mask_img = hv.Image(mask_data[::-1])
-
-        # Style: red overlay, transparent where mask=0
-        mask_img = mask_img.opts(
-            cmap=["grey", "red"],  # 0 → grey, 1 → red
-            alpha=0.4,  # overall transparency
+        # `clim` must be explicit: the overlay is patched in place on the existing
+        # Bokeh glyph, and the colour mapper otherwise keeps the range computed for
+        # whatever was drawn first (e.g. the dummy image above), which maps *every*
+        # pixel to the same colour.
+        return hv.Image(mask_data).opts(
+            cmap=MASK_CMAP,  # 0 → grey (not selected), 1 → transparent (selected)
+            clim=(0, 1),
+            alpha=MASK_ALPHA,  # opacity of the grey
             tools=[],  # no tools for mask
         )
-
-        return mask_img
 
     def _update_click_param(self, x, y):
         """

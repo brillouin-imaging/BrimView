@@ -133,3 +133,29 @@ def test_interaction_streams_survive_image_updates(visualizer, monkeypatch):
     assert visualizer.mask.values.any()
     reset.event(resetting=True)
     assert visualizer.mask is None
+
+
+@pytest.mark.parametrize("selected", [False, True])
+def test_mask_overlay_has_fixed_color_range_and_transparent_selection(
+    visualizer, selected
+):
+    """
+    The overlay is patched in place in the browser, so its colour range must not depend on
+    what was drawn first: 0 (not selected) → grey, 1 (selected) → fully transparent.
+    """
+    visualizer.img_dataset = image_dataset(20, 10)
+    if selected:
+        mask = np.zeros((10, 20), dtype=bool)
+        mask[2:7, 3:10] = True
+        visualizer.mask = xr.DataArray(
+            mask, dims=["y", "x"], coords={"x": np.arange(20), "y": np.arange(10)}
+        )
+    else:
+        visualizer.mask = None  # the placeholder must be invisible too
+
+    plot = hv.renderer("bokeh").get_plot(visualizer._plot_mask())
+    mapper = plot.handles["color_mapper"]
+    assert (mapper.low, mapper.high) == (0, 1)
+    assert list(mapper.palette) == visualizer_module.MASK_CMAP
+    assert mapper.palette[1].endswith("00") and len(mapper.palette[1]) == 9
+    assert plot.handles["glyph"].global_alpha == visualizer_module.MASK_ALPHA
