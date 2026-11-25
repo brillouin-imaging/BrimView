@@ -35,7 +35,7 @@ As there are 3 deployment versions of BrimView, it might be a bit overwhelming t
 For the pyodide-app to work, we need to have:
 - the python build tooling: `pip install build` (if it's not already there)
 - the .whl for BrimView-widget and Brimfile: run `py ./src/build_deps.py`
-- the converted BrimView app: run `py ./src/build_webapp.py` (currently we only tested it on panel 1.8.3 and earlier versions do not work)
+- the converted BrimView app: run `py ./src/build_webapp.py` with Panel 1.11
 - put all of that into one folder
 - have that folder be served by a web server: `py ./src/run_server.py`
 

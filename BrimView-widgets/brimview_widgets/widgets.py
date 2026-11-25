@@ -4,6 +4,10 @@ import param
 from .utils import catch_and_notify
 
 
+class BrimViewPage(pn.ui.Page):
+    busy = param.Boolean(default=False, readonly=False, constant=False, doc="Whether the page is busy.")
+
+
 class PathSelectorMixin:
     """
     Shared plumbing for widgets that let the user pick a file/dataset path (S3 link,
@@ -64,7 +68,7 @@ class SwitchWithLabels(pn.viewable.Viewer):
 
         self._switch = pn.widgets.Switch.from_param(self.param.value)
         # Hide the label of the switch itself
-        self._switch.name = ""
+        self._switch.label = ""
         self._switch.align = "center"
         self._layout = pn.ui.Row(self.label_false, self._switch, self.label_true)
 

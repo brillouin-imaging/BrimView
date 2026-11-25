@@ -10,14 +10,16 @@ import tempfile
 from importlib.metadata import version
 import warnings
 
+from webapp_build_utils import replace_library_with_url
+
 # region === Helper functions ===
 
 def check_panel_version():
     panel_version = version("panel")
     print("Installed Panel version:", panel_version)
     major, minor, *_ = map(int, panel_version.split("."))
-    if major == 1 and minor>=10:
-        if minor>10:
+    if major == 1 and minor>=11:
+        if minor>11:
             warnings.warn(f"Panel version {panel_version} was not tested, it might not work as expected")
     else:
         raise ValueError(f"Panel version {panel_version} is not supported")
@@ -91,41 +93,6 @@ def add_sitecustomize_to_env():
         else bootstrap + os.pathsep + old_pythonpath
     )
     return env
-
-def replace_library_with_url(js_code, lib_name, custom_url):
-    # Match the env_spec array
-    pattern = re.compile(r"(\s*await\s+micropip\.install\s*\(\[)(.*?)(\]\))", re.MULTILINE)
-    match = pattern.search(js_code)
-    if not match:
-        raise ValueError("'await micropip install' not found in the JS file.")
-
-    # Extract array content and split items (this assumes a comma-separated list of strings)
-    array_content = match.group(2)
-    #items = [item.strip().strip('"\'') for item in array_content.split(',') if item.strip()]
-    items = array_content.split(',')
-
-    # Replace the target library
-    replaced = False
-    for i, item in enumerate(items):
-        item = item.strip().strip('"\'')  # Clean up quotes and whitespace
-        if re.split(r"[=<>!~\[ ;]", item, maxsplit=1)[0] == lib_name:
-            items[i] = custom_url
-            replaced = True
-            break
-
-    if not replaced:
-        raise ValueError(f"Library '{lib_name}' not found in micropip install.")
-
-    # Reconstruct env_spec string with quoted values
-    new_array = ', '.join(f"{i}" for i in items)
-    new_content = f"{match.group(1)}{new_array}{match.group(3)}"
-
-    # Replace original list in micropip install
-    updated_content = js_code[:match.start()] + new_content + js_code[match.end():]
-
-    print(f"Replaced '{lib_name}' with '{custom_url}'")
-
-    return updated_content
 
 # endregion 
 

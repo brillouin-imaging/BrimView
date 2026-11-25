@@ -7,6 +7,13 @@ import pytest
 from brimview_widgets.bls_statistics import BlsStatistics, Data
 
 
+def test_selected_points_debug_table():
+    widget = SimpleNamespace(selected_points=[(1, 2, 3)])
+    table = BlsStatistics.selected_points_widget(widget)
+    assert isinstance(table, pn.widgets.Tabulator)
+    assert table.value.to_dict("records") == [{"z": 1, "y": 2, "x": 3}]
+
+
 @pytest.mark.parametrize("fails", [False, True])
 def test_interpolation_shows_progress_and_clears_it(monkeypatch, fails):
     tqdm = pn.ui.Tqdm()

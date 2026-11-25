@@ -196,7 +196,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
 
         # Bh5file.param.watch(self._update_data, ["data"])
         # self.get_bh5_file = Bh5file.get_bh5_file
-        self.img_data = np.zeros((512, 512))  # Placeholder for no data
+        params.setdefault("img_data", np.zeros((512, 512)))
         self.index = -1
 
         # self.img_dataset = hv.Dataset(
@@ -212,7 +212,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
         self._vline_pipe = streams.Pipe(data=self.colorrange)
         self._vlines_dmap = hv.DynamicMap(self._make_vlines, streams=[self._vline_pipe])
 
-        params["name"] = "Data Analysis visualization"
+        params["label"] = "Data Analysis visualization"
         super().__init__(**params)
 
         # The image and the mask overlay are DynamicMaps created once: when a
@@ -1171,7 +1171,7 @@ class BlsDataVisualizer(WidgetBase, PyComponent):
             self.result_options,
             axis_options,
             rendering_options,
-            title=self.name,
+            title=self.label,
             spinner=self.spinner,
         )
         return main_card

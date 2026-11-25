@@ -305,7 +305,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
         self._spectrum_source = None
         # (data, (water shift, water width) or None) used by `_initial_guess`
         self._water_cache = None
-        params["name"] = "Spectrum visualization"
+        params["label"] = "Spectrum visualization"
         super().__init__(**params)
         self.tooltip = "**Click on the image** to display the spectrum at the selected pixel. If a fit model is available, it will be displayed as well."
         # Watch tap stream updates
@@ -895,7 +895,7 @@ class BlsSpectrumVisualizer(WidgetBase, PyComponent):
                               color="primary",
                               auto=True,),
             pn.ui.FlexBox(self.auto_refit, self.saved_fit),
-            title=self.name,
+            title=self.label,
             spinner=self.spinner,
             tooltip=self.tooltip,
             sizing_mode="stretch_width",

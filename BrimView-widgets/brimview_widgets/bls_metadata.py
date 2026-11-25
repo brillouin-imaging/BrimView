@@ -27,11 +27,13 @@ class BlsMetadata(WidgetBase, PyComponent):
         allow_refs=True,
         doc="The names of the features selected and their set values",
     )
+    active = param.Boolean(default=True, allow_refs=True)
 
     def __init__(self, **params):
         self.tabulator = pn.ui.Tabulator(
             show_index=False,
             disabled=True,
+            visible=False,
             groupby=["Group"],
             hidden_columns=["Group"],
             sizing_mode="stretch_width",
@@ -69,6 +71,7 @@ else if (v === "unknown field" || v === "likely typo") {
             },
         )
         self.title = pn.ui.Markdown("## Metadata of the file \n Please load a file")
+        self._layout = pn.ui.Column(self.title, self.tabulator)
         super().__init__(**params)
 
         logger.info("BlsMetadata initialized")
@@ -109,8 +112,12 @@ else if (v === "unknown field" || v === "likely typo") {
         df = pd.DataFrame(
             rows, columns=["Parameter", "Value", "Unit", "Group", "Validity"]
         )
-        self.tabulator.value = df
-        self.tabulator_visibility = True
+        self.tabulator = self.tabulator.clone(value=df, visible=self.active)
+        self._layout[1] = self.tabulator
+
+    @param.depends("active", watch=True)
+    def _update_visibility(self):
+        self.tabulator_visibility = self.active and self.value is not None
 
     @property
     def tabulator_visibility(self):
@@ -130,4 +137,4 @@ else if (v === "unknown field" || v === "likely typo") {
         self.tabulator.visible = value
 
     def __panel__(self):
-        return pn.ui.Column(self.title, self.tabulator)
+        return self._layout

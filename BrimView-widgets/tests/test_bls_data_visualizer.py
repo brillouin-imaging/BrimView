@@ -34,6 +34,18 @@ def visualizer():
     return widget
 
 
+def test_initial_image_and_label():
+    widget = BlsDataVisualizer(BlsFileInput())
+    assert widget.label == "Data Analysis visualization"
+    np.testing.assert_array_equal(widget.img_data, np.zeros((512, 512)))
+
+
+def test_initial_image_can_be_supplied():
+    image = np.ones((2, 3))
+    widget = BlsDataVisualizer(BlsFileInput(), img_data=image)
+    np.testing.assert_array_equal(widget.img_data, image)
+
+
 def test_image_geometry_updates_each_render_and_preserves_zoom(visualizer):
     plots = [hv.renderer("bokeh").get_plot(visualizer._masked_dmap) for _ in range(2)]
     figures = [plot.state for plot in plots]

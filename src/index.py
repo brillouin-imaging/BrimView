@@ -7,6 +7,7 @@ from brimview_widgets.environment import running_from_pyodide
 import brimfile as bls  # Force import of brimfile
 
 from brimview_widgets.lazy_tabs import ActiveTabWatcher
+from brimview_widgets.widgets import BrimViewPage
 
 import panel as pn
 import holoviews as hv
@@ -122,7 +123,7 @@ MUI_THEME = {
     },
 }
 
-layout = pn.ui.Page(
+layout = BrimViewPage(
     title="BrimView - a web-based Brillouin viewer and analyzer",
     header=[header_row],
     sidebar=[
@@ -246,28 +247,11 @@ def build_ui():
     main_tabs.append((".brim Visualizer", brim_visualizer))
 
     # Metadata tab
-    bls_metadata_widget = brimview_widgets.BlsMetadata(value=FileSelector.param.data)
+    metadata_tab_active = ActiveTabWatcher(main_tabs, index_of_tab_to_watch=1)
+    bls_metadata_widget = brimview_widgets.BlsMetadata(
+        value=FileSelector.param.data, active=metadata_tab_active.param.active
+    )
     main_tabs.append(("Metadata", bls_metadata_widget))
-
-    # === UI Bug workaround ===
-    # Without this, when the tabulator gets data, it comes to the top of the DOM,
-    # even if it's in the non-active tab.
-    # This workaround works in both pyodide and panel serve
-    #
-    # Putting tabs to dynamic doesn't work in pyodide-converted
-    # Potentially related to:
-    # - https://github.com/holoviz/panel/issues/8053
-    # - https://github.com/holoviz/panel/issues/8103
-    bls_metadata_widget.tabulator_visibility = False  # Hidden by default
-
-    def control_metadata_widget(active_tab_index):
-        bls_metadata_widget.tabulator_visibility = (
-            active_tab_index == 1
-        )  # Make sure this magic number corresponds to the metadata tab index
-        logger.debug(f"Metadata tab active: {bls_metadata_widget.tabulator_visibility}")
-
-    pn.bind(control_metadata_widget, main_tabs.param.active, watch=True)
-    # ======
 
     # "Treatement" tab
     main_tabs.append(("(Re-)analyze spectra", analyser_placeholder))

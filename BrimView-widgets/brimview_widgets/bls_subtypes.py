@@ -46,7 +46,7 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
                             value=False, size=20, label="Idle", visible=True
                         )
 
-        params["name"] = "Raw data"
+        params["label"] = "Raw data"
 
         #by default the widget is not visible, it will become visible when a file containing raw data is loaded
         super().__init__(visible=False, **params)
@@ -174,7 +174,7 @@ class BlsRawDataVisualizer(WidgetBase, PyComponent):
         card = CustomPMuiCard(
             self._enable_switch,
             pn.ui.HoloViews(self._plot_data, sizing_mode="stretch_width"),
-            title=self.name,
+            title=self.label,
             spinner=self.spinner,
             tooltip=self.tooltip,
             sizing_mode="stretch_width",

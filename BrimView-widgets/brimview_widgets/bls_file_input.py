@@ -37,7 +37,7 @@ class BlsFileInput(WidgetBase, PyComponent):
     data = param.ClassSelector(class_=bls.Data, default=None, precedence=-1)
 
     def __init__(self, **params):
-        params["name"] = "File input"
+        params["label"] = "File input"
         super().__init__(**params)
 
         self.spinner = pmui.CircularProgress(
@@ -118,7 +118,7 @@ class BlsFileInput(WidgetBase, PyComponent):
     @pn.depends("bls_file", watch=True)
     def _update_header(self):
         if self.bls_file is None:
-            title = self.name
+            title = self.label
         else:
             title = f"File: {os.path.basename(self.bls_file.filename)}"
 
@@ -308,7 +308,7 @@ class BlsFileInput(WidgetBase, PyComponent):
                     self.data_group_index_widget_with_tooltip,
                     self.parameter_selector_widget,
                 ),
-                title=self.name,
+                title=self.label,
                 spinner=self.spinner,
                 sizing_mode="stretch_width",
                 collapsed = False,

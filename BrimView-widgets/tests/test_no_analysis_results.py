@@ -19,9 +19,21 @@ from brimview_widgets.bls_file_input import BlsFileInput
 from brimview_widgets.bls_spectrum import BlsSpectrumVisualizer
 from brimview_widgets.bls_statistics import BlsStatistics
 from brimview_widgets.fit_initial_guess import initial_peak_guess, water_shift_and_width
+from brimview_widgets.widgets import BrimViewPage
 
 FREQ = np.linspace(-10, 10, 128)
 PIXEL_SIZE_UM = (1.0, 2.0, 3.0)  # z, y, x
+
+
+def test_page_busy_indicator_tracks_panel_state():
+    page = BrimViewPage()
+    try:
+        pn.state._set_busy(True)
+        assert page.busy
+        pn.state._set_busy(False)
+        assert not page.busy
+    finally:
+        pn.state._set_busy(False)
 
 
 def lorentzian(nu, amplitude, center, width):
@@ -358,6 +370,31 @@ def test_loading_file_without_analysis_clears_saved_fit_table(app, tmp_path):
 
     assert spectrum.saved_fit.fitted_parameters is None
     assert not spectrum.saved_fit._table.visible
+
+
+def test_metadata_updates_while_inactive_without_mutating_rendered_table(app, tmp_path):
+    create_brim(tmp_path / "metadata.brim.zip")
+    metadata = bw.BlsMetadata(value=app.file_input.param.data, active=False)
+    layout = metadata.__panel__()
+    layout.get_root()
+    original_table = metadata.tabulator
+    assert not original_table.visible
+
+    app.load(tmp_path / "metadata.brim.zip")
+
+    assert metadata.tabulator is not original_table
+    assert original_table.value is None
+    assert layout[1] is metadata.tabulator
+    assert not metadata.tabulator.visible
+    assert not metadata.tabulator.value.empty
+    metadata.active = True
+    assert metadata.tabulator.visible
+    metadata.active = False
+    assert not metadata.tabulator.visible
+    metadata.value = None
+    metadata.active = True
+    assert not metadata.tabulator.visible
+    assert app.problems() == []
 
 
 def test_auto_refit_without_analysis(app, tmp_path, notifications):

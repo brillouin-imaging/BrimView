@@ -71,7 +71,7 @@ class BlsStatistics(WidgetBase, PyComponent):
         self.spinner = pmui.CircularProgress(
                     value=False, size=20, label="Idle", visible=True
                 )
-        params["name"] = "Group Statistics"        
+        params["label"] = "Group Statistics"
         super().__init__(**params)
 
         self.tooltip = "Use the **Lasso Select** tool to select a region in the image. This widget will compute the average spectrum and other quantities for the selected region."
@@ -160,7 +160,7 @@ class BlsStatistics(WidgetBase, PyComponent):
             return pn.ui.Markdown("No points selected.")
         else:
             df = pd.DataFrame(self.selected_points, columns=["z", "y", "x"])
-            return pn.widgets.DataFrame(df, autosize_mode="fit_columns", height=200)
+            return pn.widgets.Tabulator(df, layout="fit_columns", height=200)
 
     # === Average spectrum computation and visualization ===
 
